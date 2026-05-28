@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.0] - 2026-05-28
+
+### Fixed
+- **Layer combo now lists polygon layers.** Previous filter value (`setFilters(3)`) corresponded to *raster + no-geometry* layers, so polygon layers were hidden and the user could not pick a block layer. Now uses `QgsMapLayerProxyModel.PolygonLayer` explicitly.
+
+### Added
+- Tabbed dock UI: **Run**, **Guide**, **About**. The Guide tab is a self-contained in-panel HTML reference covering algorithm, every parameter, formulas, recipes and troubleshooting.
+- Slider + spinbox combo controls for every numeric parameter — tactile and precise.
+- **Configurable random seed** with a re-roll button (🎲). Same seed reproduces the same parcels.
+- **"Use selected features only"** mode — run on the current selection instead of the whole layer.
+- **Reset defaults** button.
+- Live status banner with severity colour coding (info / ok / warn / error).
+- Layer metadata strip showing feature count and CRS.
+
+### Changed
+- Reject geographic-CRS inputs early with a clear, actionable error message instead of producing garbage at the geometry step.
+- Modernised stylesheet (cards, brand green accent, subtle borders) without breaking on dark themes.
+
 ## [0.1.1] - 2026-05-28
 
 ### Changed
@@ -8,12 +26,6 @@
 - ID columns (`block_id`, `parcel_id`) are now optional — controlled by a checkbox in the dock.
 - Column renamed: `ada_id` → `block_id`, `aream2` → `area_m2`.
 - "imad adasi" typo fixed in metadata description.
-
-### Added
-- QGIS 3 / QGIS 4 compatibility: `QgsWkbTypes.GeometryType` accessed via try/except fallback.
-- Comprehensive `docs/guide.html` — 7-section reference with formulas, parameter tables, algorithm flow, single/double-row detection logic, merging algorithm, output schema, and step-by-step workflow.
-- "?" help button in the dock widget opens the HTML guide.
-- Documentation menu item under the ParcelFlux menu.
 
 All notable changes to **ParcelFlux** are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · versioning: [SemVer](https://semver.org/).

@@ -77,18 +77,28 @@ class ParcelFluxCore:
         hline_offset: float = 0.0,
         add_id_fields: bool = True,
         add_facade_fields: bool = True,
+        seed: int = 42,
+        selected_only: bool = False,
         progress_callback: Callable[[int, str], None] | None = None,
     ) -> tuple[QgsVectorLayer | None, str | None]:
         """Run parcel subdivision.
 
         Returns (output_layer, None) on success, or (None, error_message) on failure.
         """
+        # CRS guard — block widths are in metres
+        if input_layer is None:
+            return None, "No input layer provided."
+        if input_layer.crs().isGeographic():
+            return None, (
+                "Layer CRS must be projected (metric). "
+                "Reproject to a metric CRS (e.g. EPSG:5254 or UTM EPSG:32636) and try again.")
+
         try:
             return self._run_impl(
                 input_layer, lot_width, min_area, max_area,
                 merge_threshold / 100.0, uniform_corners, width_variation / 100.0,
                 fishbone_offset, row_width_asymmetry, hline_offset,
-                add_id_fields, add_facade_fields,
+                add_id_fields, add_facade_fields, seed, selected_only,
                 progress_callback,
             )
         except Exception as exc:
@@ -99,7 +109,7 @@ class ParcelFluxCore:
 
     def _run_impl(self, source, lot_width, min_area, max_area, merge_threshold,
                   uniform_corners, width_var, fishbone, row_asym, hline_off,
-                  add_id_fields, add_facade_fields, progress):
+                  add_id_fields, add_facade_fields, seed, selected_only, progress):
         def _emit(pct, msg):
             if progress:
                 progress(pct, msg)
@@ -125,9 +135,14 @@ class ParcelFluxCore:
         working_provider.addAttributes(working_fields)
         working_layer.updateFields()
 
-        raw_features = list(source.getFeatures())
-        if not raw_features:
-            return None, "Input layer contains no features."
+        if selected_only:
+            raw_features = list(source.getSelectedFeatures())
+            if not raw_features:
+                return None, "No features are selected in the input layer."
+        else:
+            raw_features = list(source.getFeatures())
+            if not raw_features:
+                return None, "Input layer contains no features."
 
         for feat in raw_features:
             wf = QgsFeature(working_fields)
@@ -205,7 +220,7 @@ class ParcelFluxCore:
         h_layer.updateFields()
         p_layer.updateFields()
 
-        rng = random.Random(42)
+        rng = random.Random(int(seed))
 
         for feature in merged_layer.getFeatures():
             geom = feature.geometry()

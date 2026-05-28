@@ -3,7 +3,7 @@ name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Subdivide zoning blocks into parcels with configurable width variation, row asymmetry, fishbone offset, and automatic residual merging.
-version=0.1.1
+version=0.2.0
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
@@ -23,4 +23,6 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
-    ParcelFlux 0.1.0 - Initial dock-based release. Block-to-parcel subdivision with configurable width, row asymmetry, fishbone offset, H-line shift, optional facade fields, and 3-pass residual merging. Compatible with QGIS 3.28+ and QGIS 4.
+    0.2.0 - Fix: polygon layer selection (layer combo now correctly lists polygon layers; previous filter blocked them). UI: full tabbed redesign (Run / Guide / About), in-panel rich guide, slider+spinbox controls, configurable random seed with re-roll, selected-features-only mode, projected-CRS guard with explicit error, status banner, reset-to-defaults.
+    0.1.1 - English-only UI, optional id/facade columns, QGIS 3/4 compatibility, HTML guide.
+    0.1.0 - Initial dock-based release.
