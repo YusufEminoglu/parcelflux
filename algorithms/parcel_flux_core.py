@@ -37,6 +37,7 @@ from qgis.core import (
     QgsFeature, QgsGeometry, QgsWkbTypes,
     QgsField, QgsFields, QgsVectorLayer,
     QgsPointXY, QgsLineString, QgsSpatialIndex,
+    QgsFeatureRequest, QgsProcessingContext,
 )
 from qgis.PyQt.QtCore import QVariant
 
@@ -45,6 +46,19 @@ try:
     _LINE_GEOM = QgsWkbTypes.GeometryType.LineGeometry
 except AttributeError:
     _LINE_GEOM = QgsWkbTypes.LineGeometry  # QGIS 3 fallback
+
+
+def _skip_invalid_ctx() -> QgsProcessingContext:
+    """A Processing context that tolerates invalid input geometries.
+
+    Without this, QGIS aborts whenever the user's "Invalid features filtering"
+    setting is set to *Stop algorithm execution*. ParcelFlux deals with messy
+    real-world cadastral data, so we override per-call instead of forcing the
+    user to change global Processing settings.
+    """
+    ctx = QgsProcessingContext()
+    ctx.setInvalidGeometryCheck(QgsFeatureRequest.GeometrySkipInvalid)
+    return ctx
 
 
 class ParcelFluxCore:
@@ -184,28 +198,62 @@ class ParcelFluxCore:
         irregular_layer.updateFields()
 
         has_irregular = False
+        skipped = 0
         for feat in features:
             geom = feat.geometry()
             if geom is None or geom.isEmpty():
+                skipped += 1
                 continue
-            polys = geom.asMultiPolygon() if geom.isMultipart() else [geom.asPolygon()]
+
+            # If the feature is invalid (e.g. self-intersecting bowtie even with
+            # 4 vertices), route it through the irregular path so fixgeometries
+            # can repair it before OBB. Don't trust vertex count alone.
+            invalid_input = not geom.isGeosValid()
+
+            try:
+                polys = (geom.asMultiPolygon() if geom.isMultipart()
+                         else [geom.asPolygon()])
+            except Exception:
+                skipped += 1
+                continue
+
             for polygon in polys:
+                if not polygon or not polygon[0]:
+                    continue
                 nf = QgsFeature(working_layer.fields())
                 nf.setAttributes(feat.attributes())
-                if len(polygon[0]) == 5:  # 4 vertices + closing point
-                    nf.setGeometry(QgsGeometry.fromPolygonXY(polygon))
+                nf.setGeometry(QgsGeometry.fromPolygonXY(polygon))
+                if (not invalid_input) and len(polygon[0]) == 5:
+                    # exactly 4 distinct vertices (+ closing) and valid geometry
                     reg_prov.addFeature(nf)
                 else:
                     has_irregular = True
-                    nf.setGeometry(QgsGeometry.fromPolygonXY(polygon))
                     irr_prov.addFeature(nf)
+        if skipped:
+            _emit(2, f"Classifying block geometries... ({skipped} feature(s) skipped — null/empty/unreadable)")
 
         if has_irregular:
-            _emit(3, "Converting irregular blocks to oriented bounding boxes...")
-            omb_result = processing.run("native:orientedminimumboundingbox",
-                {'INPUT': irregular_layer, 'OUTPUT': 'memory:'})['OUTPUT']
-            merged_layer = processing.run("native:mergevectorlayers",
-                {'LAYERS': [regular_layer, omb_result], 'OUTPUT': 'memory:'})['OUTPUT']
+            _emit(3, "Repairing irregular block geometries...")
+            # Some real-world cadastres contain self-intersecting or sliver-edged blocks.
+            # Run native:fixgeometries first so OBB cannot abort the pipeline on
+            # the user's QGIS "Invalid features filtering = Stop" global setting.
+            fixed_irregular = processing.run(
+                "native:fixgeometries",
+                {'INPUT': irregular_layer, 'OUTPUT': 'memory:'},
+                context=_skip_invalid_ctx(),
+            )['OUTPUT']
+
+            _emit(4, "Converting irregular blocks to oriented bounding boxes...")
+            omb_result = processing.run(
+                "native:orientedminimumboundingbox",
+                {'INPUT': fixed_irregular, 'OUTPUT': 'memory:'},
+                context=_skip_invalid_ctx(),
+            )['OUTPUT']
+            merged_layer = processing.run(
+                "native:mergevectorlayers",
+                {'LAYERS': [regular_layer, omb_result], 'OUTPUT': 'memory:'},
+                context=_skip_invalid_ctx(),
+            )['OUTPUT']
         else:
             merged_layer = regular_layer
 
@@ -372,22 +420,37 @@ class ParcelFluxCore:
                         p_prov.addFeature(pf)
 
         _emit(10, "Extending division lines...")
-        ext_h = processing.run("native:extendlines",
+        ext_h = processing.run(
+            "native:extendlines",
             {'INPUT': h_layer, 'START_DISTANCE': 0.05,
-             'END_DISTANCE': 0.05, 'OUTPUT': 'memory:'})['OUTPUT']
-        ext_p = processing.run("native:extendlines",
+             'END_DISTANCE': 0.05, 'OUTPUT': 'memory:'},
+            context=_skip_invalid_ctx(),
+        )['OUTPUT']
+        ext_p = processing.run(
+            "native:extendlines",
             {'INPUT': p_layer, 'START_DISTANCE': 0.05,
-             'END_DISTANCE': 0.05, 'OUTPUT': 'memory:'})['OUTPUT']
+             'END_DISTANCE': 0.05, 'OUTPUT': 'memory:'},
+            context=_skip_invalid_ctx(),
+        )['OUTPUT']
 
-        merged_lines = processing.run("native:mergevectorlayers",
-            {'LAYERS': [ext_h, ext_p], 'OUTPUT': 'memory:'})['OUTPUT']
+        merged_lines = processing.run(
+            "native:mergevectorlayers",
+            {'LAYERS': [ext_h, ext_p], 'OUTPUT': 'memory:'},
+            context=_skip_invalid_ctx(),
+        )['OUTPUT']
 
-        clipped_lines = processing.run("native:clip",
-            {'INPUT': merged_lines, 'OVERLAY': working_layer, 'OUTPUT': 'memory:'})['OUTPUT']
+        clipped_lines = processing.run(
+            "native:clip",
+            {'INPUT': merged_lines, 'OVERLAY': working_layer, 'OUTPUT': 'memory:'},
+            context=_skip_invalid_ctx(),
+        )['OUTPUT']
 
         _emit(18, "Splitting polygons...")
-        split_polygons_layer = processing.run("native:splitwithlines",
-            {'INPUT': working_layer, 'LINES': clipped_lines, 'OUTPUT': 'memory:'})['OUTPUT']
+        split_polygons_layer = processing.run(
+            "native:splitwithlines",
+            {'INPUT': working_layer, 'LINES': clipped_lines, 'OUTPUT': 'memory:'},
+            context=_skip_invalid_ctx(),
+        )['OUTPUT']
 
         _emit(22, "Merging residual fragments (3-pass)...")
 

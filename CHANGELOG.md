@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1] - 2026-05-28
+
+### Fixed
+- **Invalid-geometry crash.** `native:orientedminimumboundingbox` aborted the whole pipeline when the user's global Processing setting *Invalid features filtering* was set to "Stop algorithm execution" and any input block had a self-intersection or other GEOS-invalid geometry (`Feature (N) from "irregular" has invalid geometry`). Fixed in three layers:
+  1. Every `processing.run` call now passes a private `QgsProcessingContext` with `setInvalidGeometryCheck(QgsFeatureRequest.GeometrySkipInvalid)`, so the plugin is independent of the user's global setting.
+  2. The irregular layer is pre-fixed through `native:fixgeometries` before being sent to the OBB step.
+  3. Self-intersecting 4-vertex polygons (e.g. bowtie shapes) are now routed through the irregular/repair path too — vertex count alone no longer decides "regular".
+- Null / empty / unreadable geometries are skipped silently and reported in the status line.
+
 ## [0.2.0] - 2026-05-28
 
 ### Fixed
