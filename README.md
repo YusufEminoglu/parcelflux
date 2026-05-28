@@ -21,7 +21,7 @@ Divide zoning blocks (imar adalar) into parcels with configurable width, asymmet
 
 ## Installation
 
-Install from QGIS Plugin Hub or download the zip from [Releases](https://github.com/YusufEminoglu/ParcelFlux/releases).
+Install from QGIS Plugin Hub or download the zip from [Releases](https://github.com/YusufEminoglu/parcelflux/releases).
 
 ## License
 

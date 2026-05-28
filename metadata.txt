@@ -9,9 +9,9 @@ email=yusuf.eminoglu@deu.edu.tr
 
 about=ParcelFlux automates the subdivision of zoning blocks (imar adalar) into parcels with natural variation. It supports single/double-row detection, row-width asymmetry for different front/rear facades, fishbone-style organic boundaries, and automatic merging of residual fragments. Developed with feedback from educational workflows at Dokuz Eylul University, Department of City and Regional Planning.
 
-tracker=https://github.com/YusufEminoglu/ParcelFlux/issues
-repository=https://github.com/YusufEminoglu/ParcelFlux
-homepage=https://github.com/YusufEminoglu/ParcelFlux
+tracker=https://github.com/YusufEminoglu/parcelflux/issues
+repository=https://github.com/YusufEminoglu/parcelflux
+homepage=https://github.com/YusufEminoglu/parcelflux
 
 category=Vector
 tags=planx,qgis,parcel,subdivision,urban planning,settlement,dock
