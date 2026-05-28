@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-"""ParcelFlux — main plugin class.
+"""ParcelFlux — block-to-parcel subdivision plugin.
 
 Dock-style plugin: toolbar + menu + togglable dock widget.
-Single-tool: block-to-parcel subdivision engine.
 """
 from __future__ import annotations
 
@@ -27,7 +26,7 @@ class ParcelFluxPlugin:
         self.toolbar: QToolBar | None = None
         self._dock = None
 
-    # ───────────────────────── QGIS lifecycle ─────────────────────────
+    # -- QGIS lifecycle --
 
     def initGui(self) -> None:
         self.menu = QMenu(self.MENU_NAME)
@@ -39,17 +38,23 @@ class ParcelFluxPlugin:
 
         self.panel_action = self._add_action(
             os.path.join(self.icon_dir, "parcelflux.png"),
-            "ParcelFlux paneli",
+            "Toggle ParcelFlux panel",
             self._toggle_dock,
             checkable=True,
-            status_tip="ParcelFlux panelini aç/kapat",
+            status_tip="Show/hide the ParcelFlux dock panel",
         )
 
         self.menu.addSeparator()
         self._add_action(
             ":/images/themes/default/mActionHelpContents.svg",
-            "Hakkında",
+            "About",
             self._show_about,
+            add_to_toolbar=False,
+        )
+        self._add_action(
+            ":/images/themes/default/mActionHelpContents.svg",
+            "Documentation",
+            self._show_docs,
             add_to_toolbar=False,
         )
 
@@ -65,7 +70,7 @@ class ParcelFluxPlugin:
         if self.menu:
             self.menu.deleteLater()
 
-    # ───────────────────────── Dock widget ─────────────────────────
+    # -- Dock widget --
 
     def _toggle_dock(self) -> None:
         if self._dock is None:
@@ -77,14 +82,14 @@ class ParcelFluxPlugin:
                 self._dock.visibilityChanged.connect(self.panel_action.setChecked)
                 self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._dock)
             except Exception as exc:
-                QMessageBox.critical(self.iface.mainWindow(), "Hata", f"Panel oluşturulamadı:\n{exc}")
+                QMessageBox.critical(self.iface.mainWindow(), "Error", f"Could not create panel:\n{exc}")
                 self.panel_action.setChecked(False)
                 return
         self._dock.setVisible(not self._dock.isVisible())
         if self._dock.isVisible():
             self._dock.raise_()
 
-    # ───────────────────────── Helpers ─────────────────────────
+    # -- Helpers --
 
     def _add_action(self, icon_path, text, callback, *, add_to_toolbar=True,
                     add_to_menu=True, checkable=False, status_tip=None) -> QAction:
@@ -105,8 +110,15 @@ class ParcelFluxPlugin:
             self.iface.mainWindow(),
             "ParcelFlux",
             "<h3>ParcelFlux</h3>"
-            "<p>İmar adalarını konfigüre edilebilir genişlik, asimetri ve "
-            "organik sınır kayması ile parsellere böler.</p>"
-            "<p>Geliştirici: Yusuf Eminoglu<br>"
-            "Dokuz Eylül Üniversitesi, Şehir ve Bölge Planlama</p>",
+            "<p>Block-to-parcel subdivision engine with configurable width, "
+            "row asymmetry, fishbone offset, and 3-pass residual merging.</p>"
+            "<p>Developer: Yusuf Eminoglu<br>"
+            "Dokuz Eylul University, Department of City and Regional Planning</p>"
+            "<p><a href='https://github.com/YusufEminoglu/parcelflux'>"
+            "github.com/YusufEminoglu/parcelflux</a></p>",
         )
+
+    def _show_docs(self) -> None:
+        import webbrowser
+        docs_path = os.path.join(self.plugin_dir, "docs", "guide.html")
+        webbrowser.open(f"file:///{docs_path.replace(os.sep, '/')}")

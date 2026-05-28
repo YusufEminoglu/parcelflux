@@ -2,12 +2,12 @@
 name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
-description=Divide blocks (imad adas) into parcels with configurable width, asymmetry, and organic boundary offset.
+description=Subdivide zoning blocks into parcels with configurable width variation, row asymmetry, fishbone offset, and automatic residual merging.
 version=0.1.0
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=ParcelFlux automates the subdivision of zoning blocks (imar adalar) into parcels with natural variation. It supports single/double-row detection, row-width asymmetry for different front/rear facades, fishbone-style organic boundaries, and automatic merging of residual fragments. Developed with feedback from educational workflows at Dokuz Eylul University, Department of City and Regional Planning.
+about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments below a configurable area threshold. Developed at Dokuz Eylul University, Department of City and Regional Planning.
 
 tracker=https://github.com/YusufEminoglu/parcelflux/issues
 repository=https://github.com/YusufEminoglu/parcelflux
@@ -23,4 +23,4 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
-    ParcelFlux 0.1.0 - Initial dock-based release. block-to-parcel subdivision with width variation, row asymmetry, fishbone offset, and 3-pass residual merging.
+    ParcelFlux 0.1.0 - Initial dock-based release. Block-to-parcel subdivision with configurable width, row asymmetry, fishbone offset, H-line shift, optional facade fields, and 3-pass residual merging. Compatible with QGIS 3.28+ and QGIS 4.
