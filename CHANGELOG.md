@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.2] - 2026-05-30
+
+- Revised plugin icon to SVG
+
 ## [0.2.1] - 2026-05-28
 
 ### Fixed
