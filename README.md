@@ -10,7 +10,7 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 - **Fishbone offset** - organic zigzag at division-line endpoints that mimics traditional settlement morphology
 - **H-line shift** - asymmetric front/rear depths by moving the centerline away from the geometric midpoint
 - **3-pass residual merging** - sliver polygons below a configurable area threshold are merged into the neighbor with the longest shared edge
-- **Robust geometry normalization** - irregular or invalid blocks are repaired and subdivided on their oriented bounding box
+- **Actual-geometry subdivision** - irregular or invalid blocks are repaired, split inside the real block footprint, and use OBB only as a layout guide
 - **Collision-safe output schema** - generated fields fall back to `planx_*` names when the source layer already has ParcelFlux field names
 - **Computed facade metrics** - exterior frontage length, side frontage, rear-edge proxy, corner flag, and cardinal front direction
 
@@ -27,6 +27,7 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 - Core API now validates layer type, numeric ranges, and seed values before geometry processing starts.
 - Native QGIS Processing calls now receive cancellation-aware feedback.
 - Missing/invalid CRS inputs are rejected early, and output memory layers preserve the source CRS.
+- Irregular blocks no longer expand to their OBB; generated parcels stay inside the repaired source geometry.
 
 ## Architecture
 

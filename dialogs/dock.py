@@ -564,8 +564,9 @@ shipped as an external HTML guide.</p>
 <p>ParcelFlux takes a polygon layer of zoning blocks (<i>imar adaları</i>) and produces
 a new polygon layer of <b>parcels</b>. The algorithm:</p>
 <ol>
-  <li>Normalises geometry. Irregular polygons (≥5 vertices) are replaced by their
-      <b>oriented minimum bounding box</b> (OBB). Regular 4-vertex polygons pass through.</li>
+  <li>Normalises geometry. Irregular polygons (≥5 vertices) are repaired and kept as
+      the real subdivision footprint. Their <b>oriented minimum bounding box</b> (OBB)
+      is used only as a layout guide for axis detection.</li>
   <li>Identifies the two <b>shortest edges</b> of each block as its "ends". The line
       joining their midpoints is the <b>centerline (h-line)</b>; the perpendicular
       direction is the <b>division axis</b>.</li>
@@ -719,13 +720,13 @@ identical output. Press the 🎲 button or change the seed to re-roll variation.
   <tr><td>Tiny slivers persist</td><td>3 passes weren't enough</td>
       <td>Increase <code>merge_threshold</code> or <code>min_area</code>.</td></tr>
   <tr><td>Lines crossing wrongly</td><td>Block has reflex vertices</td>
-      <td>Run <i>Fix geometries</i> first; reflex angles are normalised by OBB internally.</td></tr>
+      <td>Run <i>Fix geometries</i> first; OBB is used only to guide line orientation.</td></tr>
 </table>
 
 <h2>9. Reproducibility</h2>
 <p>ParcelFlux is fully deterministic given the same input, parameters and random seed.
 This makes it suitable for academic publications: cite the version
-(<code>0.2.9</code>) and the seed used.</p>
+(<code>0.2.10</code>) and the seed used.</p>
 
 <hr>
 <p style='color:{MUTED}; font-size: 9pt;'>

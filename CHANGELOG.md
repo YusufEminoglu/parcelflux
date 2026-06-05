@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.10] - 2026-06-05
+
+- Keep irregular parcels inside actual block geometry.
+
 ## [0.2.9] - 2026-06-05
 
 - Preserve CRS across ParcelFlux memory layers.

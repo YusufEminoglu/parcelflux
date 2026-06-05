@@ -31,7 +31,7 @@
 
 <h1>ParcelFlux - Algorithm &amp; Parameter Guide</h1>
 
-<p><strong>Version:</strong> 0.2.9 &ensp;|&ensp;
+<p><strong>Version:</strong> 0.2.10 &ensp;|&ensp;
 <strong>Author:</strong> Yusuf Eminoglu &ensp;|&ensp;
 <strong>License:</strong> GPL-3.0</p>
 
@@ -46,8 +46,9 @@ layer of parcel polygons with area and optional computed facade metrics.</p>
 <p>The engine processes each input block polygon independently through six stages:</p>
 
 <ol>
-  <li><strong>Geometry Normalization</strong> — irregular polygons are replaced by their
-      oriented minimum bounding box (OBB). Regular 4-vertex polygons pass through unchanged.</li>
+  <li><strong>Geometry Normalization</strong> — irregular polygons are repaired and kept as
+      the real subdivision footprint. Their oriented minimum bounding box (OBB) is used only
+      as a layout guide for axis detection.</li>
   <li><strong>Axis Detection</strong> — the two shortest edges define the block "ends." The
       line connecting their midpoints becomes the <em>centerline</em> (h-line). The
       perpendicular direction is the <em>division axis</em> along which parcels are laid out.</li>
@@ -313,7 +314,7 @@ fallback for QGIS 3.</p>
 <hr>
 
 <p style="color: #888; font-size: 0.9em;">
-  ParcelFlux 0.2.9 &mdash; part of the
+  ParcelFlux 0.2.10 &mdash; part of the
   <a href="https://github.com/YusufEminoglu">PlanX Geospatial Tools</a> suite.
 </p>
 

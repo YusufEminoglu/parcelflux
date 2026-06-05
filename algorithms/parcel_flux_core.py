@@ -11,7 +11,8 @@ Compatible with QGIS 3.28+ and QGIS 4.x.
 Algorithm summary
 -----------------
 1. Classify block polygons as regular (4-vertex) or irregular (5+ vertex).
-   Irregular polygons are replaced by their oriented minimum bounding box (OBB).
+   Irregular polygons are repaired and kept as real block geometry; their OBB
+   is used only as a layout guide for line orientation.
 2. For each block, identify the two shortest edges as the "ends" and compute
    the division direction (perpendicular to the short edges).
 3. Detect single-row vs double-row layout based on short-edge width vs
@@ -412,46 +413,65 @@ class ParcelFluxCore:
                 {'INPUT': irregular_layer, 'OUTPUT': 'memory:'},
             )['OUTPUT']
 
-            _emit(4, "Converting irregular blocks to oriented bounding boxes...")
+            working_field_count = working_layer.fields().count()
+
+            def _normalize_to_working_schema(input_layer, name):
+                normalized_layer = _memory_layer("Polygon", name)
+                normalized_provider = normalized_layer.dataProvider()
+                normalized_provider.addAttributes(working_layer.fields())
+                normalized_layer.updateFields()
+                normalized_features = []
+                for input_feat in input_layer.getFeatures():
+                    _check_cancel()
+                    geom = input_feat.geometry()
+                    if geom is None or geom.isEmpty():
+                        continue
+                    nf = QgsFeature(working_layer.fields())
+                    nf.setGeometry(geom)
+                    attrs = list(input_feat.attributes())[:working_field_count]
+                    while len(attrs) < working_field_count:
+                        attrs.append(None)
+                    nf.setAttributes(attrs)
+                    normalized_features.append(nf)
+                normalized_provider.addFeatures(normalized_features)
+                normalized_layer.updateExtents()
+                return normalized_layer
+
+            actual_irregular_layer = _normalize_to_working_schema(
+                fixed_irregular, "irregular_repaired")
+
+            _emit(4, "Building OBB layout guides for irregular blocks...")
             omb_result = _processing_run(
                 "native:orientedminimumboundingbox",
                 {'INPUT': fixed_irregular, 'OUTPUT': 'memory:'},
             )['OUTPUT']
 
             # native:orientedminimumboundingbox appends measurement fields.
-            # Normalize the OBB layer back to the working schema so split output
-            # attributes remain stable and do not leak helper columns.
-            obb_layer = _memory_layer("Polygon", "irregular_obb")
-            obb_provider = obb_layer.dataProvider()
-            obb_provider.addAttributes(working_layer.fields())
-            obb_layer.updateFields()
-            working_field_count = working_layer.fields().count()
-            obb_features = []
-            for obb_feat in omb_result.getFeatures():
-                _check_cancel()
-                geom = obb_feat.geometry()
-                if geom is None or geom.isEmpty():
-                    continue
-                nf = QgsFeature(working_layer.fields())
-                nf.setGeometry(geom)
-                attrs = list(obb_feat.attributes())[:working_field_count]
-                while len(attrs) < working_field_count:
-                    attrs.append(None)
-                nf.setAttributes(attrs)
-                obb_features.append(nf)
-            obb_provider.addFeatures(obb_features)
-            obb_layer.updateExtents()
+            # Keep OBB as a layout guide only. The split input remains the
+            # repaired real block geometry, so parcel output cannot expand to a
+            # bounding box footprint.
+            obb_layer = _normalize_to_working_schema(omb_result, "irregular_layout_obb")
 
             merged_layer = _processing_run(
+                "native:mergevectorlayers",
+                {'LAYERS': [regular_layer, actual_irregular_layer], 'OUTPUT': 'memory:'},
+            )['OUTPUT']
+            layout_layer = _processing_run(
                 "native:mergevectorlayers",
                 {'LAYERS': [regular_layer, obb_layer], 'OUTPUT': 'memory:'},
             )['OUTPUT']
         else:
             merged_layer = regular_layer
+            layout_layer = regular_layer
 
         if merged_layer.featureCount() == 0:
             return None, (
                 "No valid polygon geometries remained after repair/normalization. "
+                "Run Fix geometries on the source layer and try again."
+            )
+        if layout_layer.featureCount() == 0:
+            return None, (
+                "No layout geometry could be built for the input layer. "
                 "Run Fix geometries on the source layer and try again."
             )
 
@@ -493,7 +513,7 @@ class ParcelFluxCore:
 
         rng = random.Random(int(seed))
 
-        for feature in merged_layer.getFeatures():
+        for feature in layout_layer.getFeatures():
             _check_cancel()
             geom = feature.geometry()
             if geom.isEmpty():
