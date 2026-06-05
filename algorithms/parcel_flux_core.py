@@ -147,7 +147,12 @@ class ParcelFluxCore:
             return None, "Input layer is not valid."
         if input_layer.geometryType() != _POLYGON_GEOM:
             return None, "Input layer must be a polygon layer."
-        if input_layer.crs().isGeographic():
+        input_crs = input_layer.crs()
+        if not input_crs.isValid():
+            return None, (
+                "Input layer CRS is missing or invalid. "
+                "Assign or reproject to a projected metric CRS and try again.")
+        if input_crs.isGeographic():
             return None, (
                 "Layer CRS must be projected (metric). "
                 "Reproject to a metric CRS (e.g. EPSG:5254 or UTM EPSG:32636) and try again.")
@@ -269,6 +274,13 @@ class ParcelFluxCore:
         source_crs = source.sourceCrs() if hasattr(source, "sourceCrs") else source.crs()
         crs_authid = source_crs.authid()
 
+        def _memory_layer(geometry_uri, name):
+            uri = f"{geometry_uri}?crs={crs_authid}" if crs_authid else geometry_uri
+            layer = QgsVectorLayer(uri, name, "memory")
+            if source_crs.isValid():
+                layer.setCrs(source_crs)
+            return layer
+
         # field names (avoid collisions)
         source_field_names = [f.name() for f in source.fields()]
         used_field_names = set(source_field_names)
@@ -294,7 +306,7 @@ class ParcelFluxCore:
                 facade_field_names[base] = _claim_field_name(base)
 
         # working layer with block ID
-        working_layer = QgsVectorLayer(f"Polygon?crs={crs_authid}", "working_input", "memory")
+        working_layer = _memory_layer("Polygon", "working_input")
         working_fields = QgsFields()
         for field in source.fields():
             working_fields.append(QgsField(field))
@@ -344,8 +356,8 @@ class ParcelFluxCore:
 
         # classify polygons: regular (4-vertex) vs irregular
         _emit(2, "Classifying block geometries...")
-        regular_layer = QgsVectorLayer(f"Polygon?crs={crs_authid}", "regular", "memory")
-        irregular_layer = QgsVectorLayer(f"Polygon?crs={crs_authid}", "irregular", "memory")
+        regular_layer = _memory_layer("Polygon", "regular")
+        irregular_layer = _memory_layer("Polygon", "irregular")
         reg_prov = regular_layer.dataProvider()
         irr_prov = irregular_layer.dataProvider()
         reg_prov.addAttributes(working_layer.fields())
@@ -409,7 +421,7 @@ class ParcelFluxCore:
             # native:orientedminimumboundingbox appends measurement fields.
             # Normalize the OBB layer back to the working schema so split output
             # attributes remain stable and do not leak helper columns.
-            obb_layer = QgsVectorLayer(f"Polygon?crs={crs_authid}", "irregular_obb", "memory")
+            obb_layer = _memory_layer("Polygon", "irregular_obb")
             obb_provider = obb_layer.dataProvider()
             obb_provider.addAttributes(working_layer.fields())
             obb_layer.updateFields()
@@ -470,8 +482,8 @@ class ParcelFluxCore:
 
         # build division lines (h-line and p-lines)
         _emit(5, "Generating division lines...")
-        h_layer = QgsVectorLayer(f"LineString?crs={crs_authid}", "h", "memory")
-        p_layer = QgsVectorLayer(f"LineString?crs={crs_authid}", "p", "memory")
+        h_layer = _memory_layer("LineString", "h")
+        p_layer = _memory_layer("LineString", "p")
         h_prov = h_layer.dataProvider()
         p_prov = p_layer.dataProvider()
         h_prov.addAttributes([QgsField("polygon_id", _FIELD_INT)])
@@ -754,7 +766,7 @@ class ParcelFluxCore:
                 if pass_num == 0:
                     final_features = m
                 break
-            temp = QgsVectorLayer(f"Polygon?crs={crs_authid}", f"pass{pass_num}", "memory")
+            temp = _memory_layer("Polygon", f"pass{pass_num}")
             tp = temp.dataProvider()
             tp.addAttributes(
                 split_polygons_layer.fields() if pass_num == 0 else current_layer.fields())
@@ -772,8 +784,7 @@ class ParcelFluxCore:
 
         # build output layer
         _emit(28, "Building output layer...")
-        output_layer = QgsVectorLayer(
-            f"MultiPolygon?crs={crs_authid}", "ParcelFlux Parcels", "memory")
+        output_layer = _memory_layer("MultiPolygon", "ParcelFlux Parcels")
         out_provider = output_layer.dataProvider()
         out_provider.addAttributes(fields)
         output_layer.updateFields()

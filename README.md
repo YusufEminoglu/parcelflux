@@ -26,6 +26,7 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 - Core processing now checks cancellation between major stages and large geometry loops.
 - Core API now validates layer type, numeric ranges, and seed values before geometry processing starts.
 - Native QGIS Processing calls now receive cancellation-aware feedback.
+- Missing/invalid CRS inputs are rejected early, and output memory layers preserve the source CRS.
 
 ## Architecture
 

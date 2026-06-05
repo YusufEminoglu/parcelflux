@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.9] - 2026-06-05
+
+- Preserve CRS across ParcelFlux memory layers.
+
 ## [0.2.8] - 2026-06-05
 
 - Harden core validation and Processing cancellation feedback.
