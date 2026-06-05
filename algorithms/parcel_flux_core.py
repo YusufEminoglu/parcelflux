@@ -69,6 +69,10 @@ def _cardinal_direction(dx: float, dy: float) -> str:
     return directions[int((angle + 22.5) // 45) % 8]
 
 
+class _CancelledRun(Exception):
+    """Internal signal used for cooperative cancellation."""
+
+
 def _skip_invalid_ctx() -> QgsProcessingContext:
     """A Processing context that tolerates invalid input geometries.
 
@@ -114,7 +118,8 @@ class ParcelFluxCore:
         add_facade_fields: bool = True,
         seed: int = 42,
         selected_only: bool = False,
-        progress_callback: Callable[[int, str], None] | None = None,
+        progress_callback: Callable[[int, str], object] | None = None,
+        cancel_callback: Callable[[], bool] | None = None,
     ) -> tuple[QgsVectorLayer | None, str | None]:
         """Run parcel subdivision.
 
@@ -134,8 +139,10 @@ class ParcelFluxCore:
                 merge_threshold / 100.0, uniform_corners, width_variation / 100.0,
                 fishbone_offset, row_width_asymmetry, hline_offset,
                 add_id_fields, add_facade_fields, seed, selected_only,
-                progress_callback,
+                progress_callback, cancel_callback,
             )
+        except _CancelledRun:
+            return None, "Cancelled."
         except Exception as exc:
             import traceback
             return None, f"Unexpected error: {exc}\n{traceback.format_exc()}"
@@ -144,10 +151,19 @@ class ParcelFluxCore:
 
     def _run_impl(self, source, lot_width, min_area, max_area, merge_threshold,
                   uniform_corners, width_var, fishbone, row_asym, hline_off,
-                  add_id_fields, add_facade_fields, seed, selected_only, progress):
+                  add_id_fields, add_facade_fields, seed, selected_only,
+                  progress, cancel):
+        def _check_cancel():
+            if cancel and cancel():
+                raise _CancelledRun()
+
         def _emit(pct, msg):
+            _check_cancel()
             if progress:
-                progress(pct, msg)
+                keep_going = progress(pct, msg)
+                if keep_going is False:
+                    raise _CancelledRun()
+            _check_cancel()
 
         _emit(0, "Preparing input data...")
 
@@ -199,6 +215,7 @@ class ParcelFluxCore:
                 return None, "Input layer contains no features."
 
         for feat in raw_features:
+            _check_cancel()
             wf = QgsFeature(working_fields)
             wf.setGeometry(feat.geometry())
             attrs = list(feat.attributes())
@@ -240,6 +257,7 @@ class ParcelFluxCore:
         has_irregular = False
         skipped = 0
         for feat in features:
+            _check_cancel()
             geom = feat.geometry()
             if geom is None or geom.isEmpty():
                 skipped += 1
@@ -258,6 +276,7 @@ class ParcelFluxCore:
                 continue
 
             for polygon in polys:
+                _check_cancel()
                 if not polygon or not polygon[0]:
                     continue
                 nf = QgsFeature(working_layer.fields())
@@ -300,6 +319,7 @@ class ParcelFluxCore:
             working_field_count = working_layer.fields().count()
             obb_features = []
             for obb_feat in omb_result.getFeatures():
+                _check_cancel()
                 geom = obb_feat.geometry()
                 if geom is None or geom.isEmpty():
                     continue
@@ -340,10 +360,12 @@ class ParcelFluxCore:
 
         parent_edges = []
         for parent_feat in merged_layer.getFeatures():
+            _check_cancel()
             parent_geom = parent_feat.geometry()
             if parent_geom is None or parent_geom.isEmpty():
                 continue
             for ring in _outer_rings(parent_geom):
+                _check_cancel()
                 for idx in range(len(ring) - 1):
                     edge = QgsGeometry.fromPolylineXY([ring[idx], ring[idx + 1]])
                     edge_len = edge.length()
@@ -364,11 +386,13 @@ class ParcelFluxCore:
         rng = random.Random(int(seed))
 
         for feature in merged_layer.getFeatures():
+            _check_cancel()
             geom = feature.geometry()
             if geom.isEmpty():
                 continue
             polys = geom.asMultiPolygon() if geom.isMultipart() else [geom.asPolygon()]
             for polygon in polys:
+                _check_cancel()
                 # measure and sort edges by length
                 sides = []
                 for i in range(len(polygon[0]) - 1):
@@ -463,6 +487,7 @@ class ParcelFluxCore:
                     widths_A = _make_widths(width_side_A, n_seg_A)
                     cum_A = start_A
                     for i in range(n_seg_A - 1):
+                        _check_cancel()
                         cum_A += widths_A[i]
                         pt = division_line.interpolate(cum_A).asPoint()
                         fish = rng.uniform(-fishbone_max, fishbone_max) if fishbone > 0 else 0
@@ -474,6 +499,7 @@ class ParcelFluxCore:
                     widths_B = _make_widths(width_side_B, n_seg_B)
                     cum_B = start_B
                     for i in range(n_seg_B - 1):
+                        _check_cancel()
                         cum_B += widths_B[i]
                         pt = division_line.interpolate(cum_B).asPoint()
                         fish = rng.uniform(-fishbone_max, fishbone_max) if fishbone > 0 else 0
@@ -488,6 +514,7 @@ class ParcelFluxCore:
                     ext_w = max_width * 1.1
 
                     for i in range(n_seg - 1):
+                        _check_cancel()
                         cumulative += widths[i]
                         point = division_line.interpolate(cumulative).asPoint()
 
@@ -561,18 +588,21 @@ class ParcelFluxCore:
             """Merge parcels below threshold into the neighbor with longest shared edge."""
             areas = {}
             for f in layer.getFeatures():
+                _check_cancel()
                 g = f.geometry()
                 if g and not g.isEmpty():
                     areas[f.id()] = g.area()
 
             si = QgsSpatialIndex()
             for f in layer.getFeatures():
+                _check_cancel()
                 si.addFeature(f)
 
             merged = []
             processed = set()
             merge_count = 0
             for f in layer.getFeatures():
+                _check_cancel()
                 if f.id() in processed:
                     continue
                 fid = f.id()
@@ -588,6 +618,7 @@ class ParcelFluxCore:
                     best = None
                     best_len = 0
                     for nid in nbrs:
+                        _check_cancel()
                         if nid == fid or nid in processed:
                             continue
                         nf = layer.getFeature(nid)
@@ -625,6 +656,7 @@ class ParcelFluxCore:
         current_layer = split_polygons_layer
         final_features = None
         for pass_num in range(3):
+            _check_cancel()
             m, mc = _merge_small(current_layer, thresh, min_area)
             _emit(24 + pass_num, f"  Merge pass {pass_num+1}: {mc} parcel(s) merged.")
             if mc == 0:
@@ -669,7 +701,9 @@ class ParcelFluxCore:
             interior_lengths = []
 
             for ring in _outer_rings(parcel_geom):
+                _check_cancel()
                 for idx in range(len(ring) - 1):
+                    _check_cancel()
                     p1 = ring[idx]
                     p2 = ring[idx + 1]
                     segment = QgsGeometry.fromPolylineXY([p1, p2])
@@ -679,6 +713,7 @@ class ParcelFluxCore:
                     segment_bbox = segment.boundingBox()
                     shared_len = 0.0
                     for parent_edge in parent_edges:
+                        _check_cancel()
                         if not segment_bbox.intersects(parent_edge.boundingBox()):
                             continue
                         shared = segment.intersection(parent_edge)
@@ -716,6 +751,7 @@ class ParcelFluxCore:
             )
 
         for feat in final_features:
+            _check_cancel()
             geom = feat.geometry()
             if geom is None or geom.isEmpty():
                 continue

@@ -192,6 +192,7 @@ class _WorkerThread(QThread):
                 seed=self.params['seed'],
                 selected_only=self.params['selected_only'],
                 progress_callback=self._emit_progress,
+                cancel_callback=self._is_cancel_requested,
             )
         except Exception as exc:  # last-line safety net
             import traceback
@@ -208,6 +209,9 @@ class _WorkerThread(QThread):
     def _emit_progress(self, pct: int, msg: str) -> None:
         if not self._cancel_requested and not self.isInterruptionRequested():
             self.progress.emit(pct, msg)
+
+    def _is_cancel_requested(self) -> bool:
+        return self._cancel_requested or self.isInterruptionRequested()
 
 
 class ParcelFluxDock(QDockWidget):
@@ -721,7 +725,7 @@ identical output. Press the 🎲 button or change the seed to re-roll variation.
 <h2>9. Reproducibility</h2>
 <p>ParcelFlux is fully deterministic given the same input, parameters and random seed.
 This makes it suitable for academic publications: cite the version
-(<code>0.2.6</code>) and the seed used.</p>
+(<code>0.2.7</code>) and the seed used.</p>
 
 <hr>
 <p style='color:{MUTED}; font-size: 9pt;'>

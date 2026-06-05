@@ -23,6 +23,7 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 - Plugin unload now removes its toolbar, menu, and actions cleanly during reloads.
 - Facade columns now contain measured values instead of empty placeholders.
 - Cancel/unload now requests safe worker cancellation instead of killing the QGIS thread.
+- Core processing now checks cancellation between major stages and large geometry loops.
 
 ## Architecture
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.7] - 2026-06-05
+
+- Propagate cooperative cancellation into core processing checkpoints.
+
 ## [0.2.6] - 2026-06-05
 
 - Replace unsafe QThread termination with cooperative cancellation and safe worker detach on plugin unload.
