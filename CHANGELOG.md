@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.5] - 2026-06-05
+
+- Compute facade frontage, side frontage, rear-edge proxy, corner flag, and front direction fields.
+
 ## [0.2.4] - 2026-06-05
 
 - Harden dock toggle, plugin unload cleanup, and worker completion signal handling.

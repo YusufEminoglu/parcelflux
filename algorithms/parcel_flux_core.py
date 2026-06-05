@@ -61,6 +61,14 @@ except AttributeError:
     _LINE_GEOM = QgsWkbTypes.LineGeometry  # QGIS 3 fallback
 
 
+def _cardinal_direction(dx: float, dy: float) -> str:
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return ""
+    angle = math.degrees(math.atan2(dy, dx))
+    directions = ("E", "NE", "N", "NW", "W", "SW", "S", "SE")
+    return directions[int((angle + 22.5) // 45) % 8]
+
+
 def _skip_invalid_ctx() -> QgsProcessingContext:
     """A Processing context that tolerates invalid input geometries.
 
@@ -318,6 +326,29 @@ class ParcelFluxCore:
                 "No valid polygon geometries remained after repair/normalization. "
                 "Run Fix geometries on the source layer and try again."
             )
+
+        def _outer_rings(geometry):
+            try:
+                polygons = (
+                    geometry.asMultiPolygon()
+                    if geometry.isMultipart()
+                    else [geometry.asPolygon()]
+                )
+            except Exception:
+                return []
+            return [polygon[0] for polygon in polygons if polygon and polygon[0]]
+
+        parent_edges = []
+        for parent_feat in merged_layer.getFeatures():
+            parent_geom = parent_feat.geometry()
+            if parent_geom is None or parent_geom.isEmpty():
+                continue
+            for ring in _outer_rings(parent_geom):
+                for idx in range(len(ring) - 1):
+                    edge = QgsGeometry.fromPolylineXY([ring[idx], ring[idx + 1]])
+                    edge_len = edge.length()
+                    if edge_len > 0:
+                        parent_edges.append(edge)
 
         # build division lines (h-line and p-lines)
         _emit(5, "Generating division lines...")
@@ -629,6 +660,61 @@ class ParcelFluxCore:
         parcel_counter = 1
         working_field_count = working_layer.fields().count()
 
+        def _facade_metrics(parcel_geom):
+            if not parent_edges:
+                return ('0.00 m', '0.00 m', '0.00 m', 0, False, '')
+
+            centroid = parcel_geom.centroid().asPoint()
+            exterior_segments = []
+            interior_lengths = []
+
+            for ring in _outer_rings(parcel_geom):
+                for idx in range(len(ring) - 1):
+                    p1 = ring[idx]
+                    p2 = ring[idx + 1]
+                    segment = QgsGeometry.fromPolylineXY([p1, p2])
+                    segment_len = segment.length()
+                    if segment_len <= 0:
+                        continue
+                    segment_bbox = segment.boundingBox()
+                    shared_len = 0.0
+                    for parent_edge in parent_edges:
+                        if not segment_bbox.intersects(parent_edge.boundingBox()):
+                            continue
+                        shared = segment.intersection(parent_edge)
+                        if shared is not None and not shared.isEmpty():
+                            shared_len += shared.length()
+                    shared_len = min(shared_len, segment_len)
+                    tolerance = max(0.01, segment_len * 1e-6)
+                    if shared_len > tolerance:
+                        midpoint = QgsPointXY((p1.x() + p2.x()) / 2.0, (p1.y() + p2.y()) / 2.0)
+                        exterior_segments.append((shared_len, midpoint))
+                    else:
+                        interior_lengths.append(segment_len)
+
+            if not exterior_segments:
+                back_len = max(interior_lengths, default=0.0)
+                return ('0.00 m', '0.00 m', f'{back_len:.2f} m', 0, False, '')
+
+            exterior_segments.sort(key=lambda item: item[0], reverse=True)
+            front_len, front_midpoint = exterior_segments[0]
+            side_len = sum(length for length, _ in exterior_segments[1:])
+            back_len = max(interior_lengths, default=0.0)
+            facade_count = len(exterior_segments)
+            is_corner = facade_count > 1 and side_len > 0.01
+            direction = _cardinal_direction(
+                front_midpoint.x() - centroid.x(),
+                front_midpoint.y() - centroid.y(),
+            )
+            return (
+                f'{front_len:.2f} m',
+                f'{side_len:.2f} m',
+                f'{back_len:.2f} m',
+                facade_count,
+                is_corner,
+                direction,
+            )
+
         for feat in final_features:
             geom = feat.geometry()
             if geom is None or geom.isEmpty():
@@ -653,7 +739,7 @@ class ParcelFluxCore:
                 attrs.append(parcel_counter)
             attrs.append(round(area, 2))
             if add_facade_fields:
-                attrs.extend(['', '', '', 0, False, ''])  # placeholder facade fields
+                attrs.extend(_facade_metrics(geom))
             nf.setAttributes(attrs)
             features_for_sink.append(nf)
             count += 1

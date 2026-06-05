@@ -12,6 +12,7 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 - **3-pass residual merging** - sliver polygons below a configurable area threshold are merged into the neighbor with the longest shared edge
 - **Robust geometry normalization** - irregular or invalid blocks are repaired and subdivided on their oriented bounding box
 - **Collision-safe output schema** - generated fields fall back to `planx_*` names when the source layer already has ParcelFlux field names
+- **Computed facade metrics** - exterior frontage length, side frontage, rear-edge proxy, corner flag, and cardinal front direction
 
 ## Current hardening
 
@@ -20,6 +21,7 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 - Residual merge progress now reports actual merge operations.
 - QGIS Plugin Hub metadata uses a bundled PNG icon (`icons/parcelflux.png`).
 - Plugin unload now removes its toolbar, menu, and actions cleanly during reloads.
+- Facade columns now contain measured values instead of empty placeholders.
 
 ## Architecture
 

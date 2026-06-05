@@ -388,7 +388,7 @@ class ParcelFluxDock(QDockWidget):
         out.addWidget(self.add_id_fields)
 
         self.add_facade_fields = QCheckBox(
-            "Add facade-tracking placeholders (facade_front, facade_side, ...)")
+            "Add computed facade metrics (front length, corner flag, direction, ...)")
         self.add_facade_fields.setChecked(DEFAULTS["add_facade_fields"])
         out.addWidget(self.add_facade_fields)
         lay.addWidget(out)
@@ -650,12 +650,12 @@ identical output. Press the 🎲 button or change the seed to re-roll variation.
   <tr><td><code>block_id</code> *</td><td>String</td><td>Source feature ID of the parent block.</td></tr>
   <tr><td><code>parcel_id</code> *</td><td>Integer</td><td>Sequential parcel number.</td></tr>
   <tr><td><code>area_m2</code></td><td>Double</td><td>Parcel area in m².</td></tr>
-  <tr><td><code>facade_front</code> *</td><td>String</td><td>Facade placeholder.</td></tr>
-  <tr><td><code>facade_side</code> *</td><td>String</td><td>Facade placeholder.</td></tr>
-  <tr><td><code>facade_back</code> *</td><td>String</td><td>Facade placeholder.</td></tr>
-  <tr><td><code>facade_count</code> *</td><td>Integer</td><td>Facade-edge count placeholder.</td></tr>
-  <tr><td><code>is_corner</code> *</td><td>Boolean</td><td>Corner-parcel flag placeholder.</td></tr>
-  <tr><td><code>front_direction</code> *</td><td>String</td><td>Front cardinal-direction placeholder.</td></tr>
+  <tr><td><code>facade_front</code> *</td><td>String</td><td>Longest exterior frontage touching the parent block boundary.</td></tr>
+  <tr><td><code>facade_side</code> *</td><td>String</td><td>Additional exterior frontage after the main frontage.</td></tr>
+  <tr><td><code>facade_back</code> *</td><td>String</td><td>Longest non-exterior parcel edge, useful as a rear-edge proxy.</td></tr>
+  <tr><td><code>facade_count</code> *</td><td>Integer</td><td>Count of exterior frontage segments.</td></tr>
+  <tr><td><code>is_corner</code> *</td><td>Boolean</td><td>True when the parcel touches more than one exterior frontage segment.</td></tr>
+  <tr><td><code>front_direction</code> *</td><td>String</td><td>Cardinal direction of the longest exterior frontage.</td></tr>
 </table>
 <p><i>* optional — controlled by the "Add … columns" checkboxes.</i></p>
 
@@ -702,7 +702,7 @@ identical output. Press the 🎲 button or change the seed to re-roll variation.
 <h2>9. Reproducibility</h2>
 <p>ParcelFlux is fully deterministic given the same input, parameters and random seed.
 This makes it suitable for academic publications: cite the version
-(<code>0.2.4</code>) and the seed used.</p>
+(<code>0.2.5</code>) and the seed used.</p>
 
 <hr>
 <p style='color:{MUTED}; font-size: 9pt;'>

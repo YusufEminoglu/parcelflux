@@ -31,13 +31,13 @@
 
 <h1>ParcelFlux - Algorithm &amp; Parameter Guide</h1>
 
-<p><strong>Version:</strong> 0.2.4 &ensp;|&ensp;
+<p><strong>Version:</strong> 0.2.5 &ensp;|&ensp;
 <strong>Author:</strong> Yusuf Eminoglu &ensp;|&ensp;
 <strong>License:</strong> GPL-3.0</p>
 
 <p>ParcelFlux subdivides zoning blocks (<em>imar adalar</em>) into individual parcels
 with tunable geometric variation. It operates on polygon layers and produces a memory
-layer of parcel polygons with area and optional facade-tracking columns.</p>
+layer of parcel polygons with area and optional computed facade metrics.</p>
 
 <hr>
 
@@ -262,13 +262,13 @@ merged again.</p>
   <tr><td colspan="3"><em>Computed columns</em></td></tr>
   <tr><td><code>parcel_id</code> *</td><td>Integer</td><td>Sequential parcel number (1..N)</td></tr>
   <tr><td><code>area_m2</code></td><td>Double</td><td>Parcel area in square metres</td></tr>
-  <tr><td colspan="3"><em>Facade tracking columns *</em> (placeholders)</td></tr>
-  <tr><td><code>facade_front</code> *</td><td>String</td><td>Front facade edge description (empty)</td></tr>
-  <tr><td><code>facade_side</code> *</td><td>String</td><td>Side facade edge description (empty)</td></tr>
-  <tr><td><code>facade_back</code> *</td><td>String</td><td>Back facade edge description (empty)</td></tr>
-  <tr><td><code>facade_count</code> *</td><td>Integer</td><td>Number of facade edges (0)</td></tr>
-  <tr><td><code>is_corner</code> *</td><td>Boolean</td><td>Corner-parcel flag (False)</td></tr>
-  <tr><td><code>front_direction</code> *</td><td>String</td><td>Cardinal direction hint (empty)</td></tr>
+  <tr><td colspan="3"><em>Computed facade metrics *</em></td></tr>
+  <tr><td><code>facade_front</code> *</td><td>String</td><td>Longest exterior frontage touching the parent block boundary</td></tr>
+  <tr><td><code>facade_side</code> *</td><td>String</td><td>Additional exterior frontage after the main frontage</td></tr>
+  <tr><td><code>facade_back</code> *</td><td>String</td><td>Longest non-exterior parcel edge, used as a rear-edge proxy</td></tr>
+  <tr><td><code>facade_count</code> *</td><td>Integer</td><td>Count of exterior frontage segments</td></tr>
+  <tr><td><code>is_corner</code> *</td><td>Boolean</td><td>True when the parcel touches more than one exterior frontage segment</td></tr>
+  <tr><td><code>front_direction</code> *</td><td>String</td><td>Cardinal direction of the longest exterior frontage</td></tr>
 </table>
 
 <p><em>* = optional; controlled by "Add ID columns" and "Add facade columns" checkboxes
@@ -306,14 +306,14 @@ fallback for QGIS 3.</p>
   <li>For north/south differentiation, enable <strong>Row Width Asymmetry</strong> (5-12%).</li>
   <li>For organic-looking boundaries, enable <strong>Fishbone Offset</strong> (3-8%).</li>
   <li>Click <strong>RUN</strong>.</li>
-  <li>The output layer is added to the map. Inspect, then run facade labeling
-      (Step 2 in the PlanX Settlement toolset) to populate facade columns.</li>
+  <li>The output layer is added to the map with computed area, frontage, corner,
+      and front-direction columns.</li>
 </ol>
 
 <hr>
 
 <p style="color: #888; font-size: 0.9em;">
-  ParcelFlux 0.2.4 &mdash; part of the
+  ParcelFlux 0.2.5 &mdash; part of the
   <a href="https://github.com/YusufEminoglu">PlanX Geospatial Tools</a> suite.
 </p>
 
