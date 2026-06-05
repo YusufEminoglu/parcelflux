@@ -19,6 +19,7 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 - `max_area=0` disables the upper area filter instead of filtering every parcel.
 - Residual merge progress now reports actual merge operations.
 - QGIS Plugin Hub metadata uses a bundled PNG icon (`icons/parcelflux.png`).
+- Plugin unload now removes its toolbar, menu, and actions cleanly during reloads.
 
 ## Architecture
 

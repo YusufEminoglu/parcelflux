@@ -159,7 +159,7 @@ class _Card(QFrame):
 
 class _WorkerThread(QThread):
     progress = pyqtSignal(int, str)
-    finished = pyqtSignal(object, object)  # result_layer, error
+    completed = pyqtSignal(object, object)  # result_layer, error
 
     def __init__(self, runner, params, parent=None):
         super().__init__(parent)
@@ -187,9 +187,9 @@ class _WorkerThread(QThread):
             )
         except Exception as exc:  # last-line safety net
             import traceback
-            self.finished.emit(None, f"{exc}\n{traceback.format_exc()}")
+            self.completed.emit(None, f"{exc}\n{traceback.format_exc()}")
             return
-        self.finished.emit(result, error)
+        self.completed.emit(result, error)
 
 
 class ParcelFluxDock(QDockWidget):
@@ -702,7 +702,7 @@ identical output. Press the 🎲 button or change the seed to re-roll variation.
 <h2>9. Reproducibility</h2>
 <p>ParcelFlux is fully deterministic given the same input, parameters and random seed.
 This makes it suitable for academic publications: cite the version
-(<code>0.2.3</code>) and the seed used.</p>
+(<code>0.2.4</code>) and the seed used.</p>
 
 <hr>
 <p style='color:{MUTED}; font-size: 9pt;'>
@@ -924,7 +924,7 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         from ..algorithms.parcel_flux_core import ParcelFluxCore
         self._worker = _WorkerThread(ParcelFluxCore(), params)
         self._worker.progress.connect(self._on_progress)
-        self._worker.finished.connect(self._on_finished)
+        self._worker.completed.connect(self._on_finished)
         self._worker.start()
 
     def _on_cancel(self) -> None:

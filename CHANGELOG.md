@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.4] - 2026-06-05
+
+- Harden dock toggle, plugin unload cleanup, and worker completion signal handling.
+
 ## [0.2.3] - 2026-06-05
 
 - Fix single-row subdivision, invalid-geometry OBB splitting, output field collisions, max-area disable behavior, and PNG icon packaging.

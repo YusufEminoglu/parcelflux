@@ -24,6 +24,7 @@ class ParcelFluxPlugin:
         self.actions: list[QAction] = []
         self.menu: QMenu | None = None
         self.toolbar: QToolBar | None = None
+        self.panel_action: QAction | None = None
         self._dock = None
 
     # -- QGIS lifecycle --
@@ -64,15 +65,26 @@ class ParcelFluxPlugin:
             self._dock.deleteLater()
             self._dock = None
         for action in self.actions:
-            self.iface.removePluginMenu(self.MENU_NAME, action)
+            if self.toolbar:
+                self.toolbar.removeAction(action)
+            if self.menu:
+                self.menu.removeAction(action)
+            action.deleteLater()
+        self.actions.clear()
         if self.toolbar:
-            del self.toolbar
+            self.iface.mainWindow().removeToolBar(self.toolbar)
+            self.toolbar.deleteLater()
+            self.toolbar = None
         if self.menu:
+            self.iface.mainWindow().menuBar().removeAction(self.menu.menuAction())
             self.menu.deleteLater()
+            self.menu = None
+        self.panel_action = None
 
     # -- Dock widget --
 
     def _toggle_dock(self) -> None:
+        created = False
         if self._dock is None:
             try:
                 from .dialogs.dock import ParcelFluxDock
@@ -81,11 +93,16 @@ class ParcelFluxPlugin:
                 self._dock.setObjectName("ParcelFluxDock")
                 self._dock.visibilityChanged.connect(self.panel_action.setChecked)
                 self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._dock)
+                created = True
             except Exception as exc:
                 QMessageBox.critical(self.iface.mainWindow(), "Error", f"Could not create panel:\n{exc}")
-                self.panel_action.setChecked(False)
+                if self.panel_action:
+                    self.panel_action.setChecked(False)
                 return
-        self._dock.setVisible(not self._dock.isVisible())
+        if created:
+            self._dock.show()
+        else:
+            self._dock.setVisible(not self._dock.isVisible())
         if self._dock.isVisible():
             self._dock.raise_()
 
