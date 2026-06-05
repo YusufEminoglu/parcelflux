@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.3] - 2026-06-05
+
+- Fix single-row subdivision, invalid-geometry OBB splitting, output field collisions, max-area disable behavior, and PNG icon packaging.
+
 ## [0.2.2] - 2026-05-30
 
 - Revised plugin icon to SVG

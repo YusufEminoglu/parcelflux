@@ -4,12 +4,21 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 
 ## Features
 
-- **Single/double-row auto-detection** — narrow blocks receive a single row of parcels; wider blocks split into two opposing rows
-- **Width variation** — per-parcel random width within a configurable range for natural-looking streetscapes
-- **Row width asymmetry** — different parcel widths on opposite sides of the centerline (e.g. wider north-facing, narrower south-facing)
-- **Fishbone offset** — organic zigzag at division-line endpoints that mimics traditional settlement morphology
-- **H-line shift** — asymmetric front/rear depths by moving the centerline away from the geometric midpoint
-- **3-pass residual merging** — sliver polygons below a configurable area threshold are merged into the neighbor with the longest shared edge
+- **Single/double-row auto-detection** - narrow blocks receive one parcel row; wider blocks split into two opposing rows
+- **Width variation** - per-parcel random width within a configurable range for natural-looking streetscapes
+- **Row width asymmetry** - different parcel widths on opposite sides of the centerline
+- **Fishbone offset** - organic zigzag at division-line endpoints that mimics traditional settlement morphology
+- **H-line shift** - asymmetric front/rear depths by moving the centerline away from the geometric midpoint
+- **3-pass residual merging** - sliver polygons below a configurable area threshold are merged into the neighbor with the longest shared edge
+- **Robust geometry normalization** - irregular or invalid blocks are repaired and subdivided on their oriented bounding box
+- **Collision-safe output schema** - generated fields fall back to `planx_*` names when the source layer already has ParcelFlux field names
+
+## Current hardening
+
+- Single-row blocks no longer receive an unwanted h-line split.
+- `max_area=0` disables the upper area filter instead of filtering every parcel.
+- Residual merge progress now reports actual merge operations.
+- QGIS Plugin Hub metadata uses a bundled PNG icon (`icons/parcelflux.png`).
 
 ## Architecture
 

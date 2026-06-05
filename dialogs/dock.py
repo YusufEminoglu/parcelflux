@@ -317,7 +317,7 @@ class ParcelFluxDock(QDockWidget):
 
         self.max_area = _SliderSpin(
             0.0, 20000.0, DEFAULTS["max_area"], step=50.0, suffix="m²", decimals=0,
-            tooltip="Parcels exceeding this area are filtered from the output.")
+            tooltip="Parcels exceeding this area are filtered from the output. 0 = no upper limit.")
         basic.addRow("Max. area:", self.max_area)
 
         self.merge_threshold = _SliderSpin(
@@ -579,7 +579,8 @@ geometries</i> if you get unexpected slivers or missing parcels.</div>
 the longest shared edge. 0 disables the rule.</p>
 
 <h3>3.3 Max. area</h3>
-<p><b>Default:</b> 2000 m². Parcels exceeding this are filtered out.</p>
+<p><b>Default:</b> 2000 m². Parcels exceeding this are filtered out.
+Set to 0 to disable the upper area filter.</p>
 
 <h3>3.4 Merge threshold</h3>
 <p><b>Default:</b> 35%. Residual-merge threshold expressed as % of the mean parcel
@@ -593,7 +594,7 @@ both ends so corner parcels are similar to interior ones:</p>
 
 <h3>3.6 Width variation</h3>
 <p>Per-parcel random width factor in [-var, +var]%. After randomisation, widths are
-re-normalised so they still sum to the available length.</p>
+re-normalised to the target row span; leftover length is handled by the corner mode.</p>
 <div class="formula">w_i = lot_width × (1 + U(−var, +var)/100)</div>
 
 <h3>3.7 Fishbone offset</h3>
@@ -701,7 +702,7 @@ identical output. Press the 🎲 button or change the seed to re-roll variation.
 <h2>9. Reproducibility</h2>
 <p>ParcelFlux is fully deterministic given the same input, parameters and random seed.
 This makes it suitable for academic publications: cite the version
-(<code>0.2.0</code>) and the seed used.</p>
+(<code>0.2.3</code>) and the seed used.</p>
 
 <hr>
 <p style='color:{MUTED}; font-size: 9pt;'>

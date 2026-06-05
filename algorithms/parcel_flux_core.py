@@ -41,6 +41,19 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import QVariant
 
+try:
+    from qgis.PyQt.QtCore import QMetaType
+
+    _FIELD_STRING = QMetaType.Type.QString
+    _FIELD_INT = QMetaType.Type.Int
+    _FIELD_DOUBLE = QMetaType.Type.Double
+    _FIELD_BOOL = QMetaType.Type.Bool
+except Exception:
+    _FIELD_STRING = QVariant.String
+    _FIELD_INT = QVariant.Int
+    _FIELD_DOUBLE = QVariant.Double
+    _FIELD_BOOL = QVariant.Bool
+
 # QGIS 3/4 compatibility: QgsWkbTypes.GeometryType moved in QGIS 4.
 try:
     _LINE_GEOM = QgsWkbTypes.GeometryType.LineGeometry
@@ -130,13 +143,32 @@ class ParcelFluxCore:
 
         _emit(0, "Preparing input data...")
 
-        source_crs = source.sourceCrs()
+        source_crs = source.sourceCrs() if hasattr(source, "sourceCrs") else source.crs()
         crs_authid = source_crs.authid()
 
         # field names (avoid collisions)
         source_field_names = [f.name() for f in source.fields()]
-        ada_id_field_name = 'block_id' if 'block_id' not in source_field_names else 'planx_block_id'
-        parcel_id_field_name = 'parcel_id' if 'parcel_id' not in source_field_names else 'planx_parcel_id'
+        used_field_names = set(source_field_names)
+
+        def _claim_field_name(base_name):
+            candidate = base_name
+            suffix = 2
+            while candidate in used_field_names:
+                candidate = f"planx_{base_name}" if suffix == 2 else f"planx_{base_name}_{suffix}"
+                suffix += 1
+            used_field_names.add(candidate)
+            return candidate
+
+        ada_id_field_name = _claim_field_name('block_id') if add_id_fields else None
+        parcel_id_field_name = _claim_field_name('parcel_id') if add_id_fields else None
+        area_field_name = _claim_field_name('area_m2')
+        facade_field_names = {}
+        if add_facade_fields:
+            for base in (
+                'facade_front', 'facade_side', 'facade_back',
+                'facade_count', 'is_corner', 'front_direction',
+            ):
+                facade_field_names[base] = _claim_field_name(base)
 
         # working layer with block ID
         working_layer = QgsVectorLayer(f"Polygon?crs={crs_authid}", "working_input", "memory")
@@ -144,7 +176,7 @@ class ParcelFluxCore:
         for field in source.fields():
             working_fields.append(QgsField(field))
         if add_id_fields:
-            working_fields.append(QgsField(ada_id_field_name, QVariant.String, 'string', 80))
+            working_fields.append(QgsField(ada_id_field_name, _FIELD_STRING, 'string', 80))
         working_provider = working_layer.dataProvider()
         working_provider.addAttributes(working_fields)
         working_layer.updateFields()
@@ -176,15 +208,15 @@ class ParcelFluxCore:
         for field in working_layer.fields():
             fields.append(QgsField(field))
         if add_id_fields:
-            fields.append(QgsField(parcel_id_field_name, QVariant.Int))
-        fields.append(QgsField('area_m2', QVariant.Double, 'double', 20, 2))
+            fields.append(QgsField(parcel_id_field_name, _FIELD_INT))
+        fields.append(QgsField(area_field_name, _FIELD_DOUBLE, 'double', 20, 2))
         if add_facade_fields:
-            fields.append(QgsField('facade_front', QVariant.String, 'string', 100))
-            fields.append(QgsField('facade_side', QVariant.String, 'string', 100))
-            fields.append(QgsField('facade_back', QVariant.String, 'string', 100))
-            fields.append(QgsField('facade_count', QVariant.Int))
-            fields.append(QgsField('is_corner', QVariant.Bool))
-            fields.append(QgsField('front_direction', QVariant.String, 'string', 20))
+            fields.append(QgsField(facade_field_names['facade_front'], _FIELD_STRING, 'string', 100))
+            fields.append(QgsField(facade_field_names['facade_side'], _FIELD_STRING, 'string', 100))
+            fields.append(QgsField(facade_field_names['facade_back'], _FIELD_STRING, 'string', 100))
+            fields.append(QgsField(facade_field_names['facade_count'], _FIELD_INT))
+            fields.append(QgsField(facade_field_names['is_corner'], _FIELD_BOOL))
+            fields.append(QgsField(facade_field_names['front_direction'], _FIELD_STRING, 'string', 20))
 
         # classify polygons: regular (4-vertex) vs irregular
         _emit(2, "Classifying block geometries...")
@@ -249,13 +281,43 @@ class ParcelFluxCore:
                 {'INPUT': fixed_irregular, 'OUTPUT': 'memory:'},
                 context=_skip_invalid_ctx(),
             )['OUTPUT']
+
+            # native:orientedminimumboundingbox appends measurement fields.
+            # Normalize the OBB layer back to the working schema so split output
+            # attributes remain stable and do not leak helper columns.
+            obb_layer = QgsVectorLayer(f"Polygon?crs={crs_authid}", "irregular_obb", "memory")
+            obb_provider = obb_layer.dataProvider()
+            obb_provider.addAttributes(working_layer.fields())
+            obb_layer.updateFields()
+            working_field_count = working_layer.fields().count()
+            obb_features = []
+            for obb_feat in omb_result.getFeatures():
+                geom = obb_feat.geometry()
+                if geom is None or geom.isEmpty():
+                    continue
+                nf = QgsFeature(working_layer.fields())
+                nf.setGeometry(geom)
+                attrs = list(obb_feat.attributes())[:working_field_count]
+                while len(attrs) < working_field_count:
+                    attrs.append(None)
+                nf.setAttributes(attrs)
+                obb_features.append(nf)
+            obb_provider.addFeatures(obb_features)
+            obb_layer.updateExtents()
+
             merged_layer = processing.run(
                 "native:mergevectorlayers",
-                {'LAYERS': [regular_layer, omb_result], 'OUTPUT': 'memory:'},
+                {'LAYERS': [regular_layer, obb_layer], 'OUTPUT': 'memory:'},
                 context=_skip_invalid_ctx(),
             )['OUTPUT']
         else:
             merged_layer = regular_layer
+
+        if merged_layer.featureCount() == 0:
+            return None, (
+                "No valid polygon geometries remained after repair/normalization. "
+                "Run Fix geometries on the source layer and try again."
+            )
 
         # build division lines (h-line and p-lines)
         _emit(5, "Generating division lines...")
@@ -263,8 +325,8 @@ class ParcelFluxCore:
         p_layer = QgsVectorLayer(f"LineString?crs={crs_authid}", "p", "memory")
         h_prov = h_layer.dataProvider()
         p_prov = p_layer.dataProvider()
-        h_prov.addAttributes([QgsField("polygon_id", QVariant.Int)])
-        p_prov.addAttributes([QgsField("polygon_id", QVariant.Int)])
+        h_prov.addAttributes([QgsField("polygon_id", _FIELD_INT)])
+        p_prov.addAttributes([QgsField("polygon_id", _FIELD_INT)])
         h_layer.updateFields()
         p_layer.updateFields()
 
@@ -304,21 +366,24 @@ class ParcelFluxCore:
 
                 division_line = QgsGeometry.fromPolylineXY(midpoints)
 
-                h_feat = QgsFeature()
-                h_feat.setGeometry(division_line)
-                h_feat.setAttributes([feature.id()])
-                h_prov.addFeature(h_feat)
-
                 dx = midpoints[1].x() - midpoints[0].x()
                 dy = midpoints[1].y() - midpoints[0].y()
                 angle = math.atan2(dy, dx)
                 max_width = max(sides[0][1], sides[1][1])
                 line_length = division_line.length()
+                if line_length <= 0 or max_width <= 0:
+                    continue
                 perp_angle = angle + math.pi / 2
                 half_ext = max_width * 0.75
 
                 # single-row detection
                 is_single_row = max_width < (lot_width * 1.8)
+
+                if not is_single_row:
+                    h_feat = QgsFeature()
+                    h_feat.setGeometry(division_line)
+                    h_feat.setAttributes([feature.id()])
+                    h_prov.addFeature(h_feat)
 
                 if row_asym > 0 and not is_single_row:
                     shift_pct = rng.uniform(-row_asym, row_asym) / 100.0
@@ -334,15 +399,15 @@ class ParcelFluxCore:
                     """Distribute line_length into n_seg segments with optional width variation.
 
                     When width_var > 0, each segment is scaled by a random factor within
-                    [+/-width_var * base_w], then all segments are re-normalized so their
-                    sum equals line_length minus half the residual (to preserve uniform-corners
-                    centering when enabled).
+                    +/-width_var, then the generated widths are re-normalized to
+                    n_seg * base_w. The remaining residual is handled only by the
+                    start offset, keeping uniform-corner and non-uniform modes honest.
                     """
                     if width_var > 0 and n_seg > 1:
                         ws = [base_w * (1 + rng.uniform(-width_var, width_var))
                               for _ in range(n_seg)]
                         if sum(ws) > 0:
-                            sc = (line_length - (line_length - n_seg * base_w) / 2) / sum(ws)
+                            sc = (n_seg * base_w) / sum(ws)
                             ws = [w * sc for w in ws]
                         return ws
                     return [base_w] * n_seg
@@ -441,16 +506,22 @@ class ParcelFluxCore:
 
         clipped_lines = processing.run(
             "native:clip",
-            {'INPUT': merged_lines, 'OVERLAY': working_layer, 'OUTPUT': 'memory:'},
+            {'INPUT': merged_lines, 'OVERLAY': merged_layer, 'OUTPUT': 'memory:'},
             context=_skip_invalid_ctx(),
         )['OUTPUT']
 
         _emit(18, "Splitting polygons...")
         split_polygons_layer = processing.run(
             "native:splitwithlines",
-            {'INPUT': working_layer, 'LINES': clipped_lines, 'OUTPUT': 'memory:'},
+            {'INPUT': merged_layer, 'LINES': clipped_lines, 'OUTPUT': 'memory:'},
             context=_skip_invalid_ctx(),
         )['OUTPUT']
+
+        if split_polygons_layer.featureCount() == 0:
+            return None, (
+                "No polygon output was produced after splitting. "
+                "Check the source geometry and parameter values, then try again."
+            )
 
         _emit(22, "Merging residual fragments (3-pass)...")
 
@@ -469,6 +540,7 @@ class ParcelFluxCore:
 
             merged = []
             processed = set()
+            merge_count = 0
             for f in layer.getFeatures():
                 if f.id() in processed:
                     continue
@@ -476,7 +548,10 @@ class ParcelFluxCore:
                 if fid not in areas:
                     continue
 
-                should_merge = areas[fid] < threshold_val or areas[fid] < min_a
+                should_merge = (
+                    (threshold_val > 0 and areas[fid] < threshold_val)
+                    or (min_a > 0 and areas[fid] < min_a)
+                )
                 if should_merge:
                     nbrs = si.intersects(f.geometry().boundingBox())
                     best = None
@@ -502,6 +577,7 @@ class ParcelFluxCore:
                         merged.append(mf)
                         processed.add(fid)
                         processed.add(best.id())
+                        merge_count += 1
                     else:
                         merged.append(f)
                         processed.add(fid)
@@ -509,8 +585,6 @@ class ParcelFluxCore:
                     merged.append(f)
                     processed.add(fid)
 
-            merge_count = sum(
-                1 for _ in processed if _ in areas and areas.get(_, 999) < threshold_val) // 2
             return merged, merge_count
 
         fc = split_polygons_layer.featureCount()
@@ -560,7 +634,7 @@ class ParcelFluxCore:
             if geom is None or geom.isEmpty():
                 continue
             area = geom.area()
-            if area > max_area:
+            if max_area > 0 and area > max_area:
                 continue
             if area < 5.0:  # filter out microscopic slivers
                 continue

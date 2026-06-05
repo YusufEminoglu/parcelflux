@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ParcelFlux — Algorithm &amp; Parameter Guide</title>
+<title>ParcelFlux - Algorithm &amp; Parameter Guide</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
          max-width: 900px; margin: 0 auto; padding: 20px 30px; line-height: 1.6;
@@ -29,9 +29,9 @@
 </head>
 <body>
 
-<h1>ParcelFlux — Algorithm &amp; Parameter Guide</h1>
+<h1>ParcelFlux - Algorithm &amp; Parameter Guide</h1>
 
-<p><strong>Version:</strong> 0.1.0 &ensp;|&ensp;
+<p><strong>Version:</strong> 0.2.3 &ensp;|&ensp;
 <strong>Author:</strong> Yusuf Eminoglu &ensp;|&ensp;
 <strong>License:</strong> GPL-3.0</p>
 
@@ -89,8 +89,8 @@ disable hard-minimum enforcement.</p>
 
 <h3>2.3 Maximum Area <code>max_area</code></h3>
 <p><strong>Default:</strong> 2000.0 m² &ensp;|&ensp; <strong>Range:</strong> 0.0 – 999999.0 m²</p>
-<p>Parcels exceeding this area are filtered out of the output. Use a high value
-(e.g. 999999) to keep all parcels regardless of size.</p>
+<p>Parcels exceeding this area are filtered out of the output. Set to 0 to disable
+the upper area filter and keep all parcels regardless of size.</p>
 
 <h3>2.4 Merge Threshold <code>merge_threshold</code></h3>
 <p><strong>Default:</strong> 35.0 % &ensp;|&ensp; <strong>Range:</strong> 0.0 – 100.0 %</p>
@@ -133,8 +133,9 @@ random multiplier:</p>
   where U(a,b) is a uniform random draw in [a,b]
 </div>
 
-<p>After randomization, all widths are re-normalized so their sum equals the available
-centerline length. At 0%, all parcels in a row are identical. At 15% with a 20 m target,
+<p>After randomization, all widths are re-normalized to the target row span
+(parcel count * lot width); any leftover length is handled by the uniform-corners
+setting. At 0%, all parcels in a row are identical. At 15% with a 20 m target,
 parcels range from approximately 17 m to 23 m.</p>
 
 <div class="note">
@@ -312,7 +313,7 @@ fallback for QGIS 3.</p>
 <hr>
 
 <p style="color: #888; font-size: 0.9em;">
-  ParcelFlux 0.1.0 &mdash; part of the
+  ParcelFlux 0.2.3 &mdash; part of the
   <a href="https://github.com/YusufEminoglu">PlanX Geospatial Tools</a> suite.
 </p>
 
