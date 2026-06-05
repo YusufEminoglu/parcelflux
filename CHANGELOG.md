@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.8] - 2026-06-05
+
+- Harden core validation and Processing cancellation feedback.
+
 ## [0.2.7] - 2026-06-05
 
 - Propagate cooperative cancellation into core processing checkpoints.

@@ -37,7 +37,7 @@ from qgis.core import (
     QgsFeature, QgsGeometry, QgsWkbTypes,
     QgsField, QgsFields, QgsVectorLayer,
     QgsPointXY, QgsLineString, QgsSpatialIndex,
-    QgsFeatureRequest, QgsProcessingContext,
+    QgsFeatureRequest, QgsProcessingContext, QgsProcessingFeedback,
 )
 from qgis.PyQt.QtCore import QVariant
 
@@ -57,8 +57,10 @@ except Exception:
 # QGIS 3/4 compatibility: QgsWkbTypes.GeometryType moved in QGIS 4.
 try:
     _LINE_GEOM = QgsWkbTypes.GeometryType.LineGeometry
+    _POLYGON_GEOM = QgsWkbTypes.GeometryType.PolygonGeometry
 except AttributeError:
     _LINE_GEOM = QgsWkbTypes.LineGeometry  # QGIS 3 fallback
+    _POLYGON_GEOM = QgsWkbTypes.PolygonGeometry  # QGIS 3 fallback
 
 
 def _cardinal_direction(dx: float, dy: float) -> str:
@@ -71,6 +73,19 @@ def _cardinal_direction(dx: float, dy: float) -> str:
 
 class _CancelledRun(Exception):
     """Internal signal used for cooperative cancellation."""
+
+
+class _CancelAwareFeedback(QgsProcessingFeedback):
+    """Processing feedback that mirrors the worker cancellation flag."""
+
+    def __init__(self, cancel_callback: Callable[[], bool] | None = None):
+        super().__init__()
+        self._cancel_callback = cancel_callback
+
+    def isCanceled(self):  # noqa: N802 - Qt/QGIS API name
+        if self._cancel_callback and self._cancel_callback():
+            self.cancel()
+        return super().isCanceled()
 
 
 def _skip_invalid_ctx() -> QgsProcessingContext:
@@ -128,10 +143,38 @@ class ParcelFluxCore:
         # CRS guard — block widths are in metres
         if input_layer is None:
             return None, "No input layer provided."
+        if hasattr(input_layer, "isValid") and not input_layer.isValid():
+            return None, "Input layer is not valid."
+        if input_layer.geometryType() != _POLYGON_GEOM:
+            return None, "Input layer must be a polygon layer."
         if input_layer.crs().isGeographic():
             return None, (
                 "Layer CRS must be projected (metric). "
                 "Reproject to a metric CRS (e.g. EPSG:5254 or UTM EPSG:32636) and try again.")
+
+        try:
+            lot_width = self._finite_float(lot_width, "Lot width")
+            min_area = self._finite_float(min_area, "Minimum area")
+            max_area = self._finite_float(max_area, "Maximum area")
+            merge_threshold = self._finite_float(merge_threshold, "Merge threshold")
+            width_variation = self._finite_float(width_variation, "Width variation")
+            fishbone_offset = self._finite_float(fishbone_offset, "Fishbone offset")
+            row_width_asymmetry = self._finite_float(
+                row_width_asymmetry, "Row width asymmetry")
+            hline_offset = self._finite_float(hline_offset, "H-line offset")
+        except (TypeError, ValueError) as exc:
+            return None, str(exc)
+        try:
+            seed = int(seed)
+        except (TypeError, ValueError):
+            return None, "Seed must be an integer."
+
+        validation_error = self._validate_parameters(
+            lot_width, min_area, max_area, merge_threshold,
+            width_variation, fishbone_offset, row_width_asymmetry, hline_offset,
+        )
+        if validation_error:
+            return None, validation_error
 
         try:
             return self._run_impl(
@@ -149,6 +192,45 @@ class ParcelFluxCore:
 
     # -- implementation --
 
+    @staticmethod
+    def _finite_float(value, label: str) -> float:
+        try:
+            number = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{label} must be a number.") from exc
+        if not math.isfinite(number):
+            raise ValueError(f"{label} must be a finite number.")
+        return number
+
+    @staticmethod
+    def _validate_parameters(
+        lot_width,
+        min_area,
+        max_area,
+        merge_threshold,
+        width_variation,
+        fishbone_offset,
+        row_width_asymmetry,
+        hline_offset,
+    ) -> str | None:
+        if lot_width <= 0:
+            return "Lot width must be greater than 0."
+        if min_area < 0:
+            return "Minimum area must be 0 or greater."
+        if max_area < 0:
+            return "Maximum area must be 0 or greater."
+        if not 0 <= merge_threshold <= 100:
+            return "Merge threshold must be between 0 and 100 percent."
+        if not 0 <= width_variation < 100:
+            return "Width variation must be at least 0 and less than 100 percent."
+        if not 0 <= fishbone_offset <= 100:
+            return "Fishbone offset must be between 0 and 100 percent."
+        if not 0 <= row_width_asymmetry < 100:
+            return "Row width asymmetry must be at least 0 and less than 100 percent."
+        if not 0 <= hline_offset < 50:
+            return "H-line offset must be at least 0 and less than 50 percent."
+        return None
+
     def _run_impl(self, source, lot_width, min_area, max_area, merge_threshold,
                   uniform_corners, width_var, fishbone, row_asym, hline_off,
                   add_id_fields, add_facade_fields, seed, selected_only,
@@ -164,6 +246,23 @@ class ParcelFluxCore:
                 if keep_going is False:
                     raise _CancelledRun()
             _check_cancel()
+
+        feedback = _CancelAwareFeedback(cancel)
+
+        def _processing_run(algorithm_id, parameters):
+            _check_cancel()
+            try:
+                result = processing.run(
+                    algorithm_id,
+                    parameters,
+                    context=_skip_invalid_ctx(),
+                    feedback=feedback,
+                )
+            except Exception:
+                _check_cancel()
+                raise
+            _check_cancel()
+            return result
 
         _emit(0, "Preparing input data...")
 
@@ -296,17 +395,15 @@ class ParcelFluxCore:
             # Some real-world cadastres contain self-intersecting or sliver-edged blocks.
             # Run native:fixgeometries first so OBB cannot abort the pipeline on
             # the user's QGIS "Invalid features filtering = Stop" global setting.
-            fixed_irregular = processing.run(
+            fixed_irregular = _processing_run(
                 "native:fixgeometries",
                 {'INPUT': irregular_layer, 'OUTPUT': 'memory:'},
-                context=_skip_invalid_ctx(),
             )['OUTPUT']
 
             _emit(4, "Converting irregular blocks to oriented bounding boxes...")
-            omb_result = processing.run(
+            omb_result = _processing_run(
                 "native:orientedminimumboundingbox",
                 {'INPUT': fixed_irregular, 'OUTPUT': 'memory:'},
-                context=_skip_invalid_ctx(),
             )['OUTPUT']
 
             # native:orientedminimumboundingbox appends measurement fields.
@@ -333,10 +430,9 @@ class ParcelFluxCore:
             obb_provider.addFeatures(obb_features)
             obb_layer.updateExtents()
 
-            merged_layer = processing.run(
+            merged_layer = _processing_run(
                 "native:mergevectorlayers",
                 {'LAYERS': [regular_layer, obb_layer], 'OUTPUT': 'memory:'},
-                context=_skip_invalid_ctx(),
             )['OUTPUT']
         else:
             merged_layer = regular_layer
@@ -543,36 +639,31 @@ class ParcelFluxCore:
                         p_prov.addFeature(pf)
 
         _emit(10, "Extending division lines...")
-        ext_h = processing.run(
+        ext_h = _processing_run(
             "native:extendlines",
             {'INPUT': h_layer, 'START_DISTANCE': 0.05,
              'END_DISTANCE': 0.05, 'OUTPUT': 'memory:'},
-            context=_skip_invalid_ctx(),
         )['OUTPUT']
-        ext_p = processing.run(
+        ext_p = _processing_run(
             "native:extendlines",
             {'INPUT': p_layer, 'START_DISTANCE': 0.05,
              'END_DISTANCE': 0.05, 'OUTPUT': 'memory:'},
-            context=_skip_invalid_ctx(),
         )['OUTPUT']
 
-        merged_lines = processing.run(
+        merged_lines = _processing_run(
             "native:mergevectorlayers",
             {'LAYERS': [ext_h, ext_p], 'OUTPUT': 'memory:'},
-            context=_skip_invalid_ctx(),
         )['OUTPUT']
 
-        clipped_lines = processing.run(
+        clipped_lines = _processing_run(
             "native:clip",
             {'INPUT': merged_lines, 'OVERLAY': merged_layer, 'OUTPUT': 'memory:'},
-            context=_skip_invalid_ctx(),
         )['OUTPUT']
 
         _emit(18, "Splitting polygons...")
-        split_polygons_layer = processing.run(
+        split_polygons_layer = _processing_run(
             "native:splitwithlines",
             {'INPUT': merged_layer, 'LINES': clipped_lines, 'OUTPUT': 'memory:'},
-            context=_skip_invalid_ctx(),
         )['OUTPUT']
 
         if split_polygons_layer.featureCount() == 0:

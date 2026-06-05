@@ -24,6 +24,8 @@ Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individu
 - Facade columns now contain measured values instead of empty placeholders.
 - Cancel/unload now requests safe worker cancellation instead of killing the QGIS thread.
 - Core processing now checks cancellation between major stages and large geometry loops.
+- Core API now validates layer type, numeric ranges, and seed values before geometry processing starts.
+- Native QGIS Processing calls now receive cancellation-aware feedback.
 
 ## Architecture
 

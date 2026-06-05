@@ -725,7 +725,7 @@ identical output. Press the 🎲 button or change the seed to re-roll variation.
 <h2>9. Reproducibility</h2>
 <p>ParcelFlux is fully deterministic given the same input, parameters and random seed.
 This makes it suitable for academic publications: cite the version
-(<code>0.2.7</code>) and the seed used.</p>
+(<code>0.2.8</code>) and the seed used.</p>
 
 <hr>
 <p style='color:{MUTED}; font-size: 9pt;'>
