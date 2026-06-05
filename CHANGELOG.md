@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.6] - 2026-06-05
+
+- Replace unsafe QThread termination with cooperative cancellation and safe worker detach on plugin unload.
+
 ## [0.2.5] - 2026-06-05
 
 - Compute facade frontage, side frontage, rear-edge proxy, corner flag, and front direction fields.

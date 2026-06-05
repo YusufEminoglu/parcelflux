@@ -61,6 +61,8 @@ class ParcelFluxPlugin:
 
     def unload(self) -> None:
         if self._dock:
+            if hasattr(self._dock, "detach_worker_for_shutdown"):
+                self._dock.detach_worker_for_shutdown()
             self.iface.removeDockWidget(self._dock)
             self._dock.deleteLater()
             self._dock = None

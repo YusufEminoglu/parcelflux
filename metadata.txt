@@ -3,7 +3,7 @@ name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Subdivide zoning blocks into parcels with configurable width variation, row asymmetry, fishbone offset, and automatic residual merging.
-version=0.2.5
+version=0.2.6
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
@@ -23,6 +23,7 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.2.6 - Fix: cancel and plugin unload no longer use unsafe QThread.terminate(); running jobs now request cancellation, discard late results, and detach safely during plugin shutdown.
     0.2.5 - Added: facade columns now contain computed exterior frontage length, side frontage, rear-edge proxy, exterior facade count, corner flag, and cardinal front direction instead of empty placeholders.
     0.2.4 - Fix: plugin unload now removes toolbar/menu/actions cleanly, the first panel toggle reliably shows the dock, and the worker completion signal no longer shadows QThread.finished.
     0.2.3 - Fix: single-row blocks no longer receive an unwanted centerline split. Irregular/invalid polygons are now split on their repaired OBB geometry, residual merge counting is accurate, max_area=0 disables the upper area filter, generated output field names avoid collisions, and a Hub-safe PNG icon is bundled.

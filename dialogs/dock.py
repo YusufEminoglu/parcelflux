@@ -60,6 +60,8 @@ DEFAULTS = {
     "output_name": "ParcelFlux Parcels",
 }
 
+_ORPHANED_WORKERS = []
+
 
 class _SliderSpin(QWidget):
     """Slider + DoubleSpinBox pair that stay in sync. Compact, frame-less."""
@@ -160,11 +162,17 @@ class _Card(QFrame):
 class _WorkerThread(QThread):
     progress = pyqtSignal(int, str)
     completed = pyqtSignal(object, object)  # result_layer, error
+    cancelled = pyqtSignal()
 
     def __init__(self, runner, params, parent=None):
         super().__init__(parent)
         self.runner = runner
         self.params = params
+        self._cancel_requested = False
+
+    def request_cancel(self) -> None:
+        self._cancel_requested = True
+        self.requestInterruption()
 
     def run(self):
         try:
@@ -183,13 +191,23 @@ class _WorkerThread(QThread):
                 add_facade_fields=self.params['add_facade_fields'],
                 seed=self.params['seed'],
                 selected_only=self.params['selected_only'],
-                progress_callback=lambda pct, msg: self.progress.emit(pct, msg),
+                progress_callback=self._emit_progress,
             )
         except Exception as exc:  # last-line safety net
             import traceback
+            if self._cancel_requested or self.isInterruptionRequested():
+                self.cancelled.emit()
+                return
             self.completed.emit(None, f"{exc}\n{traceback.format_exc()}")
             return
+        if self._cancel_requested or self.isInterruptionRequested():
+            self.cancelled.emit()
+            return
         self.completed.emit(result, error)
+
+    def _emit_progress(self, pct: int, msg: str) -> None:
+        if not self._cancel_requested and not self.isInterruptionRequested():
+            self.progress.emit(pct, msg)
 
 
 class ParcelFluxDock(QDockWidget):
@@ -200,6 +218,7 @@ class ParcelFluxDock(QDockWidget):
         self.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         self._worker: _WorkerThread | None = None
+        self._cancel_requested = False
         self._build_ui()
         self._apply_stylesheet()
 
@@ -702,7 +721,7 @@ identical output. Press the 🎲 button or change the seed to re-roll variation.
 <h2>9. Reproducibility</h2>
 <p>ParcelFlux is fully deterministic given the same input, parameters and random seed.
 This makes it suitable for academic publications: cite the version
-(<code>0.2.5</code>) and the seed used.</p>
+(<code>0.2.6</code>) and the seed used.</p>
 
 <hr>
 <p style='color:{MUTED}; font-size: 9pt;'>
@@ -870,7 +889,8 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
 
     def _on_run(self) -> None:
         if self._worker and self._worker.isRunning():
-            self._on_cancel()
+            if not self._cancel_requested:
+                self._on_cancel()
             return
 
         input_layer = self.input_layer_cb.currentLayer()
@@ -918,6 +938,7 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
             'selected_only': self.selected_only_cb.isChecked(),
         }
 
+        self._cancel_requested = False
         self._set_running(True)
         self._set_status("Running …", "info")
 
@@ -925,20 +946,37 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         self._worker = _WorkerThread(ParcelFluxCore(), params)
         self._worker.progress.connect(self._on_progress)
         self._worker.completed.connect(self._on_finished)
+        self._worker.cancelled.connect(self._on_cancelled)
         self._worker.start()
 
     def _on_cancel(self) -> None:
         if self._worker and self._worker.isRunning():
-            self._worker.terminate()
-            self._worker.wait(1500)
+            self._cancel_requested = True
+            self._worker.request_cancel()
+            self.run_btn.setEnabled(False)
+            self.run_btn.setText("  CANCELLING")
+            self._set_status(
+                "Cancelling. The current QGIS processing step will finish safely.", "warn")
+            return
+        self._on_cancelled()
+
+    def _on_cancelled(self) -> None:
+        self._cancel_requested = False
+        self._worker = None
         self._set_running(False)
-        self._set_status("Cancelled.", "warn")
+        self._set_status("Cancelled. No output layer was added.", "warn")
 
     def _on_progress(self, pct: int, msg: str) -> None:
+        if self._cancel_requested:
+            return
         self.progress_bar.setValue(pct)
         self._set_status(msg, "info")
 
     def _on_finished(self, result_layer, error) -> None:
+        if self._cancel_requested:
+            self._on_cancelled()
+            return
+        self._worker = None
         self._set_running(False)
         if error:
             QMessageBox.critical(self, "ParcelFlux", str(error))
@@ -959,6 +997,37 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         self.progress_bar.setValue(100)
         self._set_status(
             f"Done — {result_layer.featureCount()} parcels added as '{name}'.", "ok")
+
+    def detach_worker_for_shutdown(self) -> None:
+        worker = self._worker
+        if worker is None:
+            return
+        if not worker.isRunning():
+            self._worker = None
+            return
+
+        self._cancel_requested = True
+        worker.request_cancel()
+        for signal, slot in (
+            (worker.progress, self._on_progress),
+            (worker.completed, self._on_finished),
+            (worker.cancelled, self._on_cancelled),
+        ):
+            try:
+                signal.disconnect(slot)
+            except TypeError:
+                pass
+
+        _ORPHANED_WORKERS.append(worker)
+
+        def _cleanup_orphan() -> None:
+            try:
+                _ORPHANED_WORKERS.remove(worker)
+            except ValueError:
+                pass
+
+        worker.finished.connect(_cleanup_orphan)
+        self._worker = None
 
     def _set_running(self, running: bool) -> None:
         widgets = [
@@ -984,6 +1053,5 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
 
     def closeEvent(self, event) -> None:  # noqa: D401
         if self._worker and self._worker.isRunning():
-            self._worker.terminate()
-            self._worker.wait(1000)
+            self._on_cancel()
         super().closeEvent(event)
