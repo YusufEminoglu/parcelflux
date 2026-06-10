@@ -1,74 +1,75 @@
+<div align="center">
+
+<img src="icons/parcelflux.png" width="96" alt="ParcelFlux icon"/>
+
 # ParcelFlux
 
-Block-to-parcel subdivision engine for QGIS. Divides zoning blocks into individual parcels with tunable geometric variation: configurable width, row asymmetry, fishbone boundary offset, H-line shift, and automatic residual fragment merging.
+**Parcel subdivision engine for QGIS — split zoning blocks with width variation, row asymmetry, fishbone offsets and residual merging.**
 
-## Features
+[![QGIS](https://img.shields.io/badge/QGIS-3.28%2B-93b023?logo=qgis&logoColor=white)](https://plugins.qgis.org/plugins/parcelflux/)
+[![Version](https://img.shields.io/github/v/tag/YusufEminoglu/parcelflux?label=version&color=blue)](https://github.com/YusufEminoglu/parcelflux/releases)
+[![License](https://img.shields.io/badge/license-GPL--3.0-orange)](LICENSE)
+[![QGIS Plugin Hub](https://img.shields.io/badge/QGIS%20Hub-install-589632?logo=qgis&logoColor=white)](https://plugins.qgis.org/plugins/parcelflux/)
 
-- **Single/double-row auto-detection** - narrow blocks receive one parcel row; wider blocks split into two opposing rows
-- **Width variation** - per-parcel random width within a configurable range for natural-looking streetscapes
-- **Row width asymmetry** - different parcel widths on opposite sides of the centerline
-- **Fishbone offset** - organic zigzag at division-line endpoints that mimics traditional settlement morphology
-- **H-line shift** - asymmetric front/rear depths by moving the centerline away from the geometric midpoint
-- **3-pass residual merging** - sliver polygons below a configurable area threshold are merged into the neighbor with the longest shared edge
-- **Actual-geometry subdivision** - irregular or invalid blocks are repaired, split inside the real block footprint, and use OBB only as a layout guide
-- **Collision-safe output schema** - generated fields fall back to `planx_*` names when the source layer already has ParcelFlux field names
-- **Computed facade metrics** - exterior frontage length, side frontage, rear-edge proxy, corner flag, and cardinal front direction
+</div>
 
-## Current hardening
+---
 
-- Single-row blocks no longer receive an unwanted h-line split.
-- `max_area=0` disables the upper area filter instead of filtering every parcel.
-- Residual merge progress now reports actual merge operations.
-- QGIS Plugin Hub metadata uses a bundled PNG icon (`icons/parcelflux.png`).
-- Plugin unload now removes its toolbar, menu, and actions cleanly during reloads.
-- Facade columns now contain measured values instead of empty placeholders.
-- Cancel/unload now requests safe worker cancellation instead of killing the QGIS thread.
-- Core processing now checks cancellation between major stages and large geometry loops.
-- Core API now validates layer type, numeric ranges, and seed values before geometry processing starts.
-- Native QGIS Processing calls now receive cancellation-aware feedback.
-- Missing/invalid CRS inputs are rejected early, and output memory layers preserve the source CRS.
-- Irregular blocks no longer expand to their OBB; generated parcels stay inside the repaired source geometry.
+## Why ParcelFlux?
 
-## Architecture
+Hand-drawing parcels inside zoning blocks is slow, and naive equal-width splits look artificial. ParcelFlux subdivides blocks into parcels with *natural* variation — tunable width ranges, asymmetric rows, fishbone boundary offsets — while keeping every parcel inside the repaired real block footprint and cleaning up slivers automatically.
 
-```
-parcelflux/
-  __init__.py                      # classFactory entry point
-  main_plugin.py                   # QGIS plugin lifecycle (menu, toolbar, dock toggle)
-  metadata.txt                     # Plugin metadata for QGIS Hub
-  dialogs/
-    dock.py                        # Dock widget with full parameter UI and run logic
-  algorithms/
-    parcel_flux_core.py            # Standalone subdivision engine (no ProcessingProvider)
-  docs/
-    guide.html                     # Comprehensive algorithm & parameter reference
-  icons/
-    parcelflux.png
-```
+## ✨ Features
 
-## Compatibility
+- **Single/double-row auto-detection** — narrow blocks get one parcel row; wider blocks split into two opposing rows.
+- **Width variation** — per-parcel random width within a configurable range for natural-looking streetscapes.
+- **Row width asymmetry** — different parcel widths on opposite sides of the centerline.
+- **Fishbone offset** — organic zigzag at division-line endpoints that mimics traditional settlement morphology.
+- **H-line shift** — asymmetric front/rear depths by moving the centerline away from the geometric midpoint.
+- **3-pass residual merging** — slivers below an area threshold merge into the neighbor with the longest shared edge.
+- **Actual-geometry subdivision** — irregular or invalid blocks are repaired and split inside the real footprint; the OBB is only a layout guide.
+- **Computed facade metrics** — exterior frontage, side frontage, rear-edge proxy, corner flag and cardinal front direction.
+- **Collision-safe schema** — generated fields fall back to `planx_*` names when the source layer already uses ParcelFlux names.
 
-| QGIS 3.28+ | QGIS 4.x |
-|---|---|
-| Minimum | Supported via `qgisMaximumVersion=4.99` |
+## 🚀 Installation
 
-The plugin uses stable PyQGIS APIs and native Processing algorithms. No external dependencies beyond QGIS itself.
+**From the QGIS Plugin Hub (recommended):** `Plugins → Manage and Install Plugins…` → search for **"ParcelFlux"** → *Install*.
 
-## Installation
+**From a release zip:** download the latest zip from [Releases](https://github.com/YusufEminoglu/parcelflux/releases) → `Plugins → Install from ZIP`.
 
-Install from the QGIS Plugin Hub or download the latest zip from [Releases](https://github.com/YusufEminoglu/parcelflux/releases).
+Requires QGIS 3.28 or newer (QGIS 4.x supported). No external Python dependencies; cancellation-safe background worker.
 
-## Quick Start
+## 📖 Quick start
 
-1. Load a zoning block polygon layer
-2. Open **ParcelFlux** from the menu or toolbar
-3. Select the block layer, set your target lot width, and click **RUN**
-4. The parcel layer is added to the map
+1. Load a zoning block polygon layer.
+2. Open **ParcelFlux** from the menu or toolbar — the dock panel appears.
+3. Select the block layer, set your target lot width (and any variation/asymmetry options), then click **RUN**.
+4. The generated parcel layer is added to the map with facade metrics computed.
 
-## Documentation
+## ⚙️ Reference
 
-See **[docs/guide.html](docs/guide.html)** for a complete reference covering the algorithm, every parameter with formulas, and a step-by-step workflow.
+The complete algorithm reference — every parameter with formulas and a step-by-step workflow — lives in **[docs/guide.html](docs/guide.html)**.
 
-## License
+| Component | Where |
+|-----------|-------|
+| Dock panel UI & run logic | `dialogs/dock.py` |
+| Standalone subdivision engine | `algorithms/parcel_flux_core.py` |
+| Algorithm & parameter guide | `docs/guide.html` |
 
-GPL-3.0-or-later.
+Full version history: [CHANGELOG.md](CHANGELOG.md)
+
+## 🧩 Part of the PlanX ecosystem
+
+This plugin is one of 15 open-source QGIS plugins for urban planning by the same author:
+
+| Planning & analysis | CAD & production | 3D & visualization |
+|---|---|---|
+| [PlanX](https://github.com/YusufEminoglu/PlanX) — spatial-planning suite | [PlanX CAD Toolset](https://github.com/YusufEminoglu/PlanX-CAD) — drafting-grade CAD | [PlanX 3D City](https://github.com/YusufEminoglu/planx_3d_city) — Three.js city viewer |
+| [GeoStats Lab](https://github.com/YusufEminoglu/planx_geostats) — spatial statistics | [EasyFillet](https://github.com/YusufEminoglu/EasyFillet) — tangent-arc fillet | [3D OSM Model](https://github.com/YusufEminoglu/osm_3d_model) — OSM → 3D city in browser |
+| [Suitability Lab](https://github.com/YusufEminoglu/planx_suitability_lab) — raster MCDA | [Settlement Toolset](https://github.com/YusufEminoglu/PlanX-Settlement) — 9-stage settlement plans | [OSM Quick 3D](https://github.com/YusufEminoglu/osm_quick_3d) — OSM → native QGIS 3D |
+| [DataCube Lab](https://github.com/YusufEminoglu/planx_datacube) — spatiotemporal cubes | [UIP Toolset](https://github.com/YusufEminoglu/PlanX-UIP) — Turkish master-plan automation | [Urban Procedural 3D](https://github.com/YusufEminoglu/planx_urban_procedural_3d) — parametric zoning lab |
+| [Urban Resilience](https://github.com/YusufEminoglu/planx_urban_resilience) — 28 resilience tools | [ParcelFlux](https://github.com/YusufEminoglu/parcelflux) — parcel subdivision | [CartoLab](https://github.com/YusufEminoglu/planx_cartolab) — publication cartography |
+
+## 📜 License & author
+
+GPL-3.0-or-later © [Yusuf Eminoğlu](https://github.com/YusufEminoglu) — bug reports and feature requests welcome in [Issues](https://github.com/YusufEminoglu/parcelflux/issues).
