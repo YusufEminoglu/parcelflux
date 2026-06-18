@@ -7,7 +7,7 @@ authors:
     orcid: "https://orcid.org/0009-0005-6000-2934"
 title: "ParcelFlux"
 version: "0.2.10"
-# doi: "" # Zenodo DOI numarasi alindiktan sonra buraya eklenebilir
+doi: "10.5281/zenodo.20753125"
 date-released: "2026-06-18"
 url: "https://github.com/YusufEminoglu/parcelflux"
 abstract: "Subdivide zoning blocks into parcels with configurable width variation, row asymmetry, fishbone offset, and automatic residual merging."
