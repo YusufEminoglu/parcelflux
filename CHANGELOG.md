@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.12] - 2026-07-14
+
+- Add width-to-depth facade ratio field and resolve all security scan warnings
+
 ## [0.2.11] - 2026-06-18
 
 - docs: add CITATION.cff for Zenodo DOI integration

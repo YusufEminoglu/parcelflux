@@ -30,10 +30,30 @@ Algorithm summary
 from __future__ import annotations
 
 import math
-import random
 from typing import Callable
 
 import processing
+
+
+class _LCG:
+    """Deterministic pseudo-random number generator.
+
+    A self-contained 64-bit linear congruential generator (Knuth's MMIX
+    constants) providing uniform random distributions. Not for cryptographic use.
+    """
+
+    __slots__ = ("_s",)
+    _A = 6364136223846793005
+    _C = 1442695040888963407
+    _M = (1 << 64) - 1
+
+    def __init__(self, seed: int = 0):
+        self._s = (int(seed) * 2 + 0x9E3779B97F4A7C15) & self._M
+
+    def uniform(self, lo: float, hi: float) -> float:
+        self._s = (self._A * self._s + self._C) & self._M
+        frac = (self._s >> 11) / float(1 << 53)  # top 53 bits -> [0, 1)
+        return lo + (hi - lo) * frac
 from qgis.core import (
     QgsFeature, QgsGeometry, QgsWkbTypes,
     QgsField, QgsFields, QgsVectorLayer,
@@ -303,6 +323,7 @@ class ParcelFluxCore:
             for base in (
                 'facade_front', 'facade_side', 'facade_back',
                 'facade_count', 'is_corner', 'front_direction',
+                'wd_ratio',
             ):
                 facade_field_names[base] = _claim_field_name(base)
 
@@ -354,6 +375,7 @@ class ParcelFluxCore:
             fields.append(QgsField(facade_field_names['facade_count'], _FIELD_INT))
             fields.append(QgsField(facade_field_names['is_corner'], _FIELD_BOOL))
             fields.append(QgsField(facade_field_names['front_direction'], _FIELD_STRING, 'string', 20))
+            fields.append(QgsField(facade_field_names['wd_ratio'], _FIELD_DOUBLE, 'double', 10, 2))
 
         # classify polygons: regular (4-vertex) vs irregular
         _emit(2, "Classifying block geometries...")
@@ -511,7 +533,7 @@ class ParcelFluxCore:
         h_layer.updateFields()
         p_layer.updateFields()
 
-        rng = random.Random(int(seed))
+        rng = _LCG(int(seed))
 
         for feature in layout_layer.getFeatures():
             _check_cancel()
@@ -816,7 +838,7 @@ class ParcelFluxCore:
 
         def _facade_metrics(parcel_geom):
             if not parent_edges:
-                return ('0.00 m', '0.00 m', '0.00 m', 0, False, '')
+                return ('0.00 m', '0.00 m', '0.00 m', 0, False, '', 0.0)
 
             centroid = parcel_geom.centroid().asPoint()
             exterior_segments = []
@@ -851,7 +873,7 @@ class ParcelFluxCore:
 
             if not exterior_segments:
                 back_len = max(interior_lengths, default=0.0)
-                return ('0.00 m', '0.00 m', f'{back_len:.2f} m', 0, False, '')
+                return ('0.00 m', '0.00 m', f'{back_len:.2f} m', 0, False, '', 0.0)
 
             exterior_segments.sort(key=lambda item: item[0], reverse=True)
             front_len, front_midpoint = exterior_segments[0]
@@ -863,6 +885,8 @@ class ParcelFluxCore:
                 front_midpoint.x() - centroid.x(),
                 front_midpoint.y() - centroid.y(),
             )
+            area = parcel_geom.area()
+            wd_ratio = (front_len ** 2) / area if area > 0.01 else 0.0
             return (
                 f'{front_len:.2f} m',
                 f'{side_len:.2f} m',
@@ -870,6 +894,7 @@ class ParcelFluxCore:
                 facade_count,
                 is_corner,
                 direction,
+                round(wd_ratio, 2),
             )
 
         for feat in final_features:

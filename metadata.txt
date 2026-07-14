@@ -3,7 +3,7 @@ name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Subdivide zoning blocks into parcels with configurable width variation, row asymmetry, fishbone offset, and automatic residual merging.
-version=0.2.11
+version=0.2.12
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 

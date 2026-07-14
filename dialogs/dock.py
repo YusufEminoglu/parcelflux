@@ -874,8 +874,9 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         self._set_status("Parameters reset to defaults.", "ok")
 
     def _reroll_seed(self) -> None:
-        import random
-        self.seed_spin.setValue(random.randint(1, 99999))
+        import time
+        t_seed = int((time.time() * 1000000)) % 99999 + 1
+        self.seed_spin.setValue(t_seed)
 
     def _open_external_docs(self) -> None:
         import webbrowser
