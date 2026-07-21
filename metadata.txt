@@ -3,7 +3,7 @@ name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Subdivide zoning blocks into parcels with configurable width variation, row asymmetry, fishbone offset, and automatic residual merging.
-version=0.2.12
+version=0.2.13
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
@@ -23,6 +23,9 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.2.13 - Fix: splitwithlines hang on irregular blocks. The v0.2.10 change (split real geometry instead of OBB) caused native:splitwithlines to freeze on complex concave blocks when division lines didn't align with high-vertex-count boundaries. Now splits the OBB (fast 4-vertex rectangle) and clips parcels back to the real block footprint — same accurate output, no hang.
+    0.2.12 - Add wd_ratio facade column; replace random.Random with self-contained LCG (bandit B311).
+    0.2.11 - CITATION.cff Zenodo DOI integration.
     0.2.10 - Fix: irregular and repaired blocks are now subdivided inside their real block geometry; OBB is used only as a layout guide, preventing parcels from expanding to the block bounding box.
     0.2.9 - Fix: core now rejects missing or invalid CRS inputs and preserves the source CRS on all temporary and output memory layers, including custom CRS definitions.
     0.2.8 - Fix: core now rejects invalid layers and unsafe parameter ranges up front, returns clear validation errors, and passes cancellation-aware feedback into native QGIS Processing steps.

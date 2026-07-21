@@ -469,24 +469,32 @@ class ParcelFluxCore:
             )['OUTPUT']
 
             # native:orientedminimumboundingbox appends measurement fields.
-            # Keep OBB as a layout guide only. The split input remains the
-            # repaired real block geometry, so parcel output cannot expand to a
-            # bounding box footprint.
+            # Keep OBB as a layout guide.  Split the OBB (fast, 4-vertex
+            # rectangle) and clip parcels back to the real block footprint
+            # afterwards — native:splitwithlines can hang on complex real
+            # geometry, especially when division lines don't perfectly align
+            # with concave or high-vertex-count boundaries.
             obb_layer = _normalize_to_working_schema(omb_result, "irregular_layout_obb")
 
-            merged_layer = _processing_run(
-                "native:mergevectorlayers",
-                {'LAYERS': [regular_layer, actual_irregular_layer], 'OUTPUT': 'memory:'},
-            )['OUTPUT']
-            layout_layer = _processing_run(
+            # split_layer  = regular + OBB (simple geometry for splitwithlines)
+            # layout_layer = same (division-line source)
+            # real_layer   = regular + repaired real geometry (parent edges +
+            #                post-split clip target)
+            split_layer = _processing_run(
                 "native:mergevectorlayers",
                 {'LAYERS': [regular_layer, obb_layer], 'OUTPUT': 'memory:'},
             )['OUTPUT']
+            layout_layer = split_layer
+            real_layer = _processing_run(
+                "native:mergevectorlayers",
+                {'LAYERS': [regular_layer, actual_irregular_layer], 'OUTPUT': 'memory:'},
+            )['OUTPUT']
         else:
-            merged_layer = regular_layer
+            split_layer = regular_layer
             layout_layer = regular_layer
+            real_layer = regular_layer
 
-        if merged_layer.featureCount() == 0:
+        if split_layer.featureCount() == 0:
             return None, (
                 "No valid polygon geometries remained after repair/normalization. "
                 "Run Fix geometries on the source layer and try again."
@@ -509,7 +517,7 @@ class ParcelFluxCore:
             return [polygon[0] for polygon in polygons if polygon and polygon[0]]
 
         parent_edges = []
-        for parent_feat in merged_layer.getFeatures():
+        for parent_feat in real_layer.getFeatures():
             _check_cancel()
             parent_geom = parent_feat.geometry()
             if parent_geom is None or parent_geom.isEmpty():
@@ -711,14 +719,24 @@ class ParcelFluxCore:
 
         clipped_lines = _processing_run(
             "native:clip",
-            {'INPUT': merged_lines, 'OVERLAY': merged_layer, 'OUTPUT': 'memory:'},
+            {'INPUT': merged_lines, 'OVERLAY': split_layer, 'OUTPUT': 'memory:'},
         )['OUTPUT']
 
         _emit(18, "Splitting polygons...")
         split_polygons_layer = _processing_run(
             "native:splitwithlines",
-            {'INPUT': merged_layer, 'LINES': clipped_lines, 'OUTPUT': 'memory:'},
+            {'INPUT': split_layer, 'LINES': clipped_lines, 'OUTPUT': 'memory:'},
         )['OUTPUT']
+
+        # When irregular blocks are present the split ran on OBB rectangles
+        # (fast + reliable).  Clip parcels back to the real block footprints
+        # so they never exceed the actual irregular boundary.
+        if has_irregular:
+            split_polygons_layer = _processing_run(
+                "native:clip",
+                {'INPUT': split_polygons_layer,
+                 'OVERLAY': real_layer, 'OUTPUT': 'memory:'},
+            )['OUTPUT']
 
         if split_polygons_layer.featureCount() == 0:
             return None, (

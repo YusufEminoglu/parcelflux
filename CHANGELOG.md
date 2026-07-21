@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.13] - 2026-07-21
+
+- Fix splitwithlines freeze on irregular blocks: split the OBB (fast, 4-vertex rectangle) and clip parcels back to the real block footprint — same accurate result as v0.2.10's "keep real geometry" intent without the hang.
+
 ## [0.2.12] - 2026-07-14
 
 - Add width-to-depth facade ratio field and resolve all security scan warnings
