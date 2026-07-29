@@ -2,12 +2,12 @@
 name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
-description=Subdivide zoning blocks into parcels with configurable width variation, row asymmetry, fishbone offset, and automatic residual merging.
-version=0.2.13
+description=Subdivide zoning blocks into parcels with minimum-frontage, depth and corner rules, width variation, row asymmetry, fishbone offset, and automatic residual merging.
+version=0.3.0
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments below a configurable area threshold. Developed at Dokuz Eylul University, Department of City and Regional Planning.
+about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, minimum street frontage, explicit front-row depth and corner-plot widening, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments. Output is complete by construction: parcels that exceed the maximum area are split further, and anything still outside the envelope is kept and flagged rather than deleted, with a coverage report after every run. Results can be previewed before they are added, and four seeded layouts can be compared side by side. Developed at Dokuz Eylul University, Department of City and Regional Planning.
 
 tracker=https://github.com/YusufEminoglu/parcelflux/issues
 repository=https://github.com/YusufEminoglu/parcelflux
@@ -23,6 +23,16 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.3.0 - Complete, verifiable subdivision.
+        Fix: oversized parcels are no longer deleted from the output. max_area used to filter them out, punching holes into the block; with the default 2000 m2 limit a whole block could produce zero parcels and vanish without a message. Oversized parcels are now bisected across their long axis until they fit, and anything that still cannot fit is kept and flagged. Output area now equals input area.
+        Fix: slivers are merged into a neighbour instead of being discarded at write time.
+        Fix: plugin unload no longer leaves an orphan toolbar behind on reload.
+        Added: minimum street frontage, explicit front-row parcel depth, and corner-plot widening constraints.
+        Added: pf_flag output column marking oversize, undersize and narrow parcels, so a plan is never quietly incomplete.
+        Added: quality report after every run - parcel and block counts, coverage percentage, area min/mean/median/max, mean frontage, merge and re-split counts.
+        Added: preview before adding, with Apply and Discard.
+        Added: seed comparison - run four seeds and pick a layout from rendered thumbnails.
+        Quality: first automated test suite (17 engine checks, 16 dock and lifecycle checks), passing on QGIS 3.44 LTR and QGIS 4.2.
     0.2.13 - Fix: splitwithlines hang on irregular blocks. The v0.2.10 change (split real geometry instead of OBB) caused native:splitwithlines to freeze on complex concave blocks when division lines didn't align with high-vertex-count boundaries. Now splits the OBB (fast 4-vertex rectangle) and clips parcels back to the real block footprint — same accurate output, no hang.
     0.2.12 - Add wd_ratio facade column; replace random.Random with self-contained LCG (bandit B311).
     0.2.11 - CITATION.cff Zenodo DOI integration.

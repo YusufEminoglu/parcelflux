@@ -35,6 +35,12 @@ from typing import Callable
 import processing
 
 
+from qgis.core import (
+    QgsFeature, QgsGeometry, QgsWkbTypes,
+    QgsField, QgsFields, QgsVectorLayer,
+    QgsPointXY, QgsLineString, QgsSpatialIndex,
+    QgsFeatureRequest, QgsProcessingContext, QgsProcessingFeedback,
+)
 class _LCG:
     """Deterministic pseudo-random number generator.
 
@@ -54,26 +60,31 @@ class _LCG:
         self._s = (self._A * self._s + self._C) & self._M
         frac = (self._s >> 11) / float(1 << 53)  # top 53 bits -> [0, 1)
         return lo + (hi - lo) * frac
-from qgis.core import (
-    QgsFeature, QgsGeometry, QgsWkbTypes,
-    QgsField, QgsFields, QgsVectorLayer,
-    QgsPointXY, QgsLineString, QgsSpatialIndex,
-    QgsFeatureRequest, QgsProcessingContext, QgsProcessingFeedback,
-)
-from qgis.PyQt.QtCore import QVariant
 
-try:
-    from qgis.PyQt.QtCore import QMetaType
 
-    _FIELD_STRING = QMetaType.Type.QString
-    _FIELD_INT = QMetaType.Type.Int
-    _FIELD_DOUBLE = QMetaType.Type.Double
-    _FIELD_BOOL = QMetaType.Type.Bool
-except Exception:
-    _FIELD_STRING = QVariant.String
-    _FIELD_INT = QVariant.Int
-    _FIELD_DOUBLE = QVariant.Double
-    _FIELD_BOOL = QVariant.Bool
+def _resolve_field_types():
+    """Return the (string, int, double, bool) field types QgsField accepts here.
+
+    QgsField gained its QMetaType.Type overload in QGIS 3.38, and PyQt6 removed
+    QVariant.Type entirely. Importing QMetaType successfully is therefore not
+    proof that QgsField will take it — on QGIS 3.28-3.36 the import works and
+    the constructor still refuses. Building a throwaway field settles it.
+    """
+    try:
+        from qgis.PyQt.QtCore import QMetaType
+
+        QgsField("planx_probe", QMetaType.Type.QString)
+        return (QMetaType.Type.QString, QMetaType.Type.Int,
+                QMetaType.Type.Double, QMetaType.Type.Bool)
+    except Exception:
+        # Only reached on QGIS 3.x below 3.38, where PyQt5 still provides
+        # QVariant.Type. QGIS 4 never takes this path.
+        from qgis.PyQt.QtCore import QVariant
+
+        return QVariant.String, QVariant.Int, QVariant.Double, QVariant.Bool
+
+
+_FIELD_STRING, _FIELD_INT, _FIELD_DOUBLE, _FIELD_BOOL = _resolve_field_types()
 
 # QGIS 3/4 compatibility: QgsWkbTypes.GeometryType moved in QGIS 4.
 try:
@@ -84,12 +95,54 @@ except AttributeError:
     _POLYGON_GEOM = QgsWkbTypes.PolygonGeometry  # QGIS 3 fallback
 
 
+def _median(values) -> float:
+    """Median of a sequence; 0.0 when empty."""
+    ordered = sorted(values)
+    count = len(ordered)
+    if count == 0:
+        return 0.0
+    middle = count // 2
+    if count % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
 def _cardinal_direction(dx: float, dy: float) -> str:
     if abs(dx) < 1e-9 and abs(dy) < 1e-9:
         return ""
     angle = math.degrees(math.atan2(dy, dx))
     directions = ("E", "NE", "N", "NW", "W", "SW", "S", "SE")
     return directions[int((angle + 22.5) // 45) % 8]
+
+
+# Quality report skeleton. Every run replaces this on ParcelFluxCore.report so
+# the caller can show the operator what actually happened to their blocks.
+_EMPTY_REPORT = {
+    "blocks_in": 0,
+    "blocks_skipped": 0,
+    "parcels": 0,
+    "input_area": 0.0,
+    "output_area": 0.0,
+    "coverage_pct": 0.0,
+    "area_min": 0.0,
+    "area_mean": 0.0,
+    "area_median": 0.0,
+    "area_max": 0.0,
+    "frontage_mean": 0.0,
+    "merged": 0,
+    "resplit": 0,
+    "flag_oversize": 0,
+    "flag_undersize": 0,
+    "flag_narrow": 0,
+}
+
+# Recursion limit for splitting oversized parcels. Each level doubles the parcel
+# count, so 5 levels turn one parcel into at most 32 — far past any real case.
+_MAX_RESPLIT_DEPTH = 5
+
+# Parcels below this area are treated as slivers: merged where possible instead
+# of being written out as unusable dust.
+_SLIVER_AREA = 5.0
 
 
 class _CancelledRun(Exception):
@@ -150,6 +203,9 @@ class ParcelFluxCore:
         fishbone_offset: float = 0.0,
         row_width_asymmetry: float = 0.0,
         hline_offset: float = 0.0,
+        min_frontage: float = 0.0,
+        parcel_depth: float = 0.0,
+        corner_widening: float = 0.0,
         add_id_fields: bool = True,
         add_facade_fields: bool = True,
         seed: int = 42,
@@ -160,7 +216,9 @@ class ParcelFluxCore:
         """Run parcel subdivision.
 
         Returns (output_layer, None) on success, or (None, error_message) on failure.
+        After a successful run ``self.report`` holds the quality summary.
         """
+        self.report = dict(_EMPTY_REPORT)
         # CRS guard — block widths are in metres
         if input_layer is None:
             return None, "No input layer provided."
@@ -188,6 +246,9 @@ class ParcelFluxCore:
             row_width_asymmetry = self._finite_float(
                 row_width_asymmetry, "Row width asymmetry")
             hline_offset = self._finite_float(hline_offset, "H-line offset")
+            min_frontage = self._finite_float(min_frontage, "Minimum frontage")
+            parcel_depth = self._finite_float(parcel_depth, "Parcel depth")
+            corner_widening = self._finite_float(corner_widening, "Corner widening")
         except (TypeError, ValueError) as exc:
             return None, str(exc)
         try:
@@ -198,6 +259,7 @@ class ParcelFluxCore:
         validation_error = self._validate_parameters(
             lot_width, min_area, max_area, merge_threshold,
             width_variation, fishbone_offset, row_width_asymmetry, hline_offset,
+            min_frontage, parcel_depth, corner_widening,
         )
         if validation_error:
             return None, validation_error
@@ -207,6 +269,7 @@ class ParcelFluxCore:
                 input_layer, lot_width, min_area, max_area,
                 merge_threshold / 100.0, uniform_corners, width_variation / 100.0,
                 fishbone_offset, row_width_asymmetry, hline_offset,
+                min_frontage, parcel_depth, corner_widening / 100.0,
                 add_id_fields, add_facade_fields, seed, selected_only,
                 progress_callback, cancel_callback,
             )
@@ -238,6 +301,9 @@ class ParcelFluxCore:
         fishbone_offset,
         row_width_asymmetry,
         hline_offset,
+        min_frontage=0.0,
+        parcel_depth=0.0,
+        corner_widening=0.0,
     ) -> str | None:
         if lot_width <= 0:
             return "Lot width must be greater than 0."
@@ -255,10 +321,23 @@ class ParcelFluxCore:
             return "Row width asymmetry must be at least 0 and less than 100 percent."
         if not 0 <= hline_offset < 50:
             return "H-line offset must be at least 0 and less than 50 percent."
+        if min_frontage < 0:
+            return "Minimum frontage must be 0 or greater."
+        if min_frontage >= lot_width:
+            return (
+                "Minimum frontage must be smaller than the lot width, "
+                "otherwise every parcel would be merged away.")
+        if parcel_depth < 0:
+            return "Parcel depth must be 0 or greater."
+        if not 0 <= corner_widening <= 100:
+            return "Corner widening must be between 0 and 100 percent."
+        if 0 < max_area < min_area:
+            return "Maximum area must be greater than the minimum area."
         return None
 
     def _run_impl(self, source, lot_width, min_area, max_area, merge_threshold,
                   uniform_corners, width_var, fishbone, row_asym, hline_off,
+                  min_frontage, parcel_depth, corner_wide,
                   add_id_fields, add_facade_fields, seed, selected_only,
                   progress, cancel):
         def _check_cancel():
@@ -318,6 +397,9 @@ class ParcelFluxCore:
         ada_id_field_name = _claim_field_name('block_id') if add_id_fields else None
         parcel_id_field_name = _claim_field_name('parcel_id') if add_id_fields else None
         area_field_name = _claim_field_name('area_m2')
+        # Nothing is ever dropped silently any more: a parcel that cannot be
+        # brought inside the requested envelope is written out and flagged.
+        flag_field_name = _claim_field_name('pf_flag')
         facade_field_names = {}
         if add_facade_fields:
             for base in (
@@ -368,6 +450,7 @@ class ParcelFluxCore:
         if add_id_fields:
             fields.append(QgsField(parcel_id_field_name, _FIELD_INT))
         fields.append(QgsField(area_field_name, _FIELD_DOUBLE, 'double', 20, 2))
+        fields.append(QgsField(flag_field_name, _FIELD_STRING, 'string', 20))
         if add_facade_fields:
             fields.append(QgsField(facade_field_names['facade_front'], _FIELD_STRING, 'string', 100))
             fields.append(QgsField(facade_field_names['facade_side'], _FIELD_STRING, 'string', 100))
@@ -516,19 +599,57 @@ class ParcelFluxCore:
                 return []
             return [polygon[0] for polygon in polygons if polygon and polygon[0]]
 
+        # Block boundary edges, spatially indexed. Frontage is "parcel boundary
+        # shared with the parent block boundary", and both the minimum-frontage
+        # constraint and the facade columns ask for it per parcel, so a linear
+        # scan over every block edge (the pre-0.3 behaviour) is far too slow.
         parent_edges = []
+        edge_index = QgsSpatialIndex()
+        input_area_total = 0.0
         for parent_feat in real_layer.getFeatures():
             _check_cancel()
             parent_geom = parent_feat.geometry()
             if parent_geom is None or parent_geom.isEmpty():
                 continue
+            input_area_total += parent_geom.area()
             for ring in _outer_rings(parent_geom):
                 _check_cancel()
                 for idx in range(len(ring) - 1):
                     edge = QgsGeometry.fromPolylineXY([ring[idx], ring[idx + 1]])
                     edge_len = edge.length()
                     if edge_len > 0:
+                        edge_feat = QgsFeature(len(parent_edges))
+                        edge_feat.setGeometry(edge)
+                        edge_index.addFeature(edge_feat)
                         parent_edges.append(edge)
+
+        def _shared_with_block(segment, segment_len):
+            """Length of ``segment`` that lies on the parent block boundary."""
+            bbox = segment.boundingBox()
+            bbox.grow(0.001)
+            shared_len = 0.0
+            for edge_id in edge_index.intersects(bbox):
+                _check_cancel()
+                shared = segment.intersection(parent_edges[edge_id])
+                if shared is not None and not shared.isEmpty():
+                    shared_len += shared.length()
+            return min(shared_len, segment_len)
+
+        def _frontage_length(parcel_geom):
+            """Total exterior frontage of a parcel, in metres."""
+            if not parent_edges or parcel_geom is None or parcel_geom.isEmpty():
+                return 0.0
+            total = 0.0
+            for ring in _outer_rings(parcel_geom):
+                for idx in range(len(ring) - 1):
+                    segment = QgsGeometry.fromPolylineXY([ring[idx], ring[idx + 1]])
+                    segment_len = segment.length()
+                    if segment_len <= 0:
+                        continue
+                    shared_len = _shared_with_block(segment, segment_len)
+                    if shared_len > max(0.01, segment_len * 1e-6):
+                        total += shared_len
+            return total
 
         # build division lines (h-line and p-lines)
         _emit(5, "Generating division lines...")
@@ -561,9 +682,16 @@ class ParcelFluxCore:
                 sides.sort(key=lambda x: x[1])
 
                 shortest_sides = sides[:2]
+                # The longer of the two short sides is the block's cross
+                # dimension, i.e. the depth available for the front+rear rows.
+                cross_width = max(sides[0][1], sides[1][1])
 
-                # h-line shift (optional asymmetry)
-                if hline_off > 0:
+                # Centreline placement across the block depth.
+                if parcel_depth > 0 and cross_width > 0:
+                    # Explicit depth wins over random shift: the operator asked
+                    # for a specific front-row depth in metres.
+                    h_ratio = min(0.85, max(0.15, parcel_depth / cross_width))
+                elif hline_off > 0:
                     h_shift = rng.uniform(-hline_off, hline_off) / 100.0
                     h_ratio = 0.5 + h_shift
                 else:
@@ -582,7 +710,7 @@ class ParcelFluxCore:
                 dx = midpoints[1].x() - midpoints[0].x()
                 dy = midpoints[1].y() - midpoints[0].y()
                 angle = math.atan2(dy, dx)
-                max_width = max(sides[0][1], sides[1][1])
+                max_width = cross_width
                 line_length = division_line.length()
                 if line_length <= 0 or max_width <= 0:
                     continue
@@ -615,6 +743,10 @@ class ParcelFluxCore:
                     +/-width_var, then the generated widths are re-normalized to
                     n_seg * base_w. The remaining residual is handled only by the
                     start offset, keeping uniform-corner and non-uniform modes honest.
+
+                    Corner widening then grows the first and last parcel of the
+                    row and takes the difference back from the interior ones, so
+                    the row still spans exactly n_seg * base_w.
                     """
                     if width_var > 0 and n_seg > 1:
                         ws = [base_w * (1 + rng.uniform(-width_var, width_var))
@@ -622,8 +754,20 @@ class ParcelFluxCore:
                         if sum(ws) > 0:
                             sc = (n_seg * base_w) / sum(ws)
                             ws = [w * sc for w in ws]
-                        return ws
-                    return [base_w] * n_seg
+                    else:
+                        ws = [base_w] * n_seg
+
+                    if corner_wide > 0 and n_seg >= 3:
+                        total = sum(ws)
+                        extra = (ws[0] + ws[-1]) * corner_wide
+                        interior_total = total - ws[0] - ws[-1]
+                        if interior_total > extra:
+                            ws[0] *= (1 + corner_wide)
+                            ws[-1] *= (1 + corner_wide)
+                            shrink = (interior_total - extra) / interior_total
+                            for i in range(1, n_seg - 1):
+                                ws[i] *= shrink
+                    return ws
 
                 def _add_half_line(pt, direction, fish_off=0):
                     par_angle = angle
@@ -748,13 +892,26 @@ class ParcelFluxCore:
 
         # 3-pass residual merging
         def _merge_small(layer, threshold_val, min_a):
-            """Merge parcels below threshold into the neighbor with longest shared edge."""
+            """Merge undersized or under-fronted parcels into their best neighbour.
+
+            "Best" is the neighbour sharing the longest edge. A parcel qualifies
+            when it is below the residual threshold, below the minimum area,
+            below the minimum frontage, or is a sliver — merging is how a parcel
+            gets rescued instead of deleted.
+            """
             areas = {}
             for f in layer.getFeatures():
                 _check_cancel()
                 g = f.geometry()
                 if g and not g.isEmpty():
                     areas[f.id()] = g.area()
+
+            frontages = {}
+
+            def _frontage_of(feature):
+                if feature.id() not in frontages:
+                    frontages[feature.id()] = _frontage_length(feature.geometry())
+                return frontages[feature.id()]
 
             si = QgsSpatialIndex()
             for f in layer.getFeatures():
@@ -775,6 +932,8 @@ class ParcelFluxCore:
                 should_merge = (
                     (threshold_val > 0 and areas[fid] < threshold_val)
                     or (min_a > 0 and areas[fid] < min_a)
+                    or areas[fid] < _SLIVER_AREA
+                    or (min_frontage > 0 and _frontage_of(f) < min_frontage)
                 )
                 if should_merge:
                     nbrs = si.intersects(f.geometry().boundingBox())
@@ -818,9 +977,11 @@ class ParcelFluxCore:
 
         current_layer = split_polygons_layer
         final_features = None
+        merged_total = 0
         for pass_num in range(3):
             _check_cancel()
             m, mc = _merge_small(current_layer, thresh, min_area)
+            merged_total += mc
             _emit(24 + pass_num, f"  Merge pass {pass_num+1}: {mc} parcel(s) merged.")
             if mc == 0:
                 if pass_num == 0:
@@ -841,6 +1002,34 @@ class ParcelFluxCore:
 
         if final_features is None:
             final_features = list(current_layer.getFeatures())
+
+        # Oversized parcels used to be dropped from the output, which silently
+        # punched holes into the block — a whole block could vanish without a
+        # word. Now they are bisected across their long axis until they fit, and
+        # anything that still cannot fit is written out with a flag.
+        if max_area > 0:
+            _emit(27, "Re-splitting oversized parcels...")
+            expanded_features = []
+            resplit_total = 0
+            for feat in final_features:
+                _check_cancel()
+                geom = feat.geometry()
+                if geom is None or geom.isEmpty():
+                    continue
+                if geom.area() <= max_area:
+                    expanded_features.append(feat)
+                    continue
+                pieces = self._resplit_to_max_area(geom, max_area, _check_cancel)
+                if len(pieces) > 1:
+                    resplit_total += len(pieces) - 1
+                for piece in pieces:
+                    nf = QgsFeature(feat.fields())
+                    nf.setGeometry(piece)
+                    nf.setAttributes(feat.attributes())
+                    expanded_features.append(nf)
+            final_features = expanded_features
+        else:
+            resplit_total = 0
 
         # build output layer
         _emit(28, "Building output layer...")
@@ -872,16 +1061,7 @@ class ParcelFluxCore:
                     segment_len = segment.length()
                     if segment_len <= 0:
                         continue
-                    segment_bbox = segment.boundingBox()
-                    shared_len = 0.0
-                    for parent_edge in parent_edges:
-                        _check_cancel()
-                        if not segment_bbox.intersects(parent_edge.boundingBox()):
-                            continue
-                        shared = segment.intersection(parent_edge)
-                        if shared is not None and not shared.isEmpty():
-                            shared_len += shared.length()
-                    shared_len = min(shared_len, segment_len)
+                    shared_len = _shared_with_block(segment, segment_len)
                     tolerance = max(0.01, segment_len * 1e-6)
                     if shared_len > tolerance:
                         midpoint = QgsPointXY((p1.x() + p2.x()) / 2.0, (p1.y() + p2.y()) / 2.0)
@@ -915,16 +1095,34 @@ class ParcelFluxCore:
                 round(wd_ratio, 2),
             )
 
+        areas_out = []
+        frontages_out = []
+        flag_counts = {"oversize": 0, "undersize": 0, "narrow": 0}
+
         for feat in final_features:
             _check_cancel()
             geom = feat.geometry()
             if geom is None or geom.isEmpty():
                 continue
             area = geom.area()
+            # Only numerical dust is discarded; anything a planner could see is
+            # written out, flagged if it falls outside the requested envelope.
+            if area < 0.01:
+                continue
+
+            frontage = _frontage_length(geom) if (
+                min_frontage > 0 or add_facade_fields) else 0.0
+
+            flag = ""
             if max_area > 0 and area > max_area:
-                continue
-            if area < 5.0:  # filter out microscopic slivers
-                continue
+                flag = "oversize"
+                flag_counts["oversize"] += 1
+            elif min_area > 0 and area < min_area:
+                flag = "undersize"
+                flag_counts["undersize"] += 1
+            elif min_frontage > 0 and frontage < min_frontage:
+                flag = "narrow"
+                flag_counts["narrow"] += 1
 
             nf = QgsFeature(fields)
             nf.setGeometry(geom)
@@ -939,15 +1137,139 @@ class ParcelFluxCore:
             if add_id_fields:
                 attrs.append(parcel_counter)
             attrs.append(round(area, 2))
+            attrs.append(flag)
             if add_facade_fields:
                 attrs.extend(_facade_metrics(geom))
             nf.setAttributes(attrs)
             features_for_sink.append(nf)
+            areas_out.append(area)
+            frontages_out.append(frontage)
             count += 1
             parcel_counter += 1
 
         out_provider.addFeatures(features_for_sink)
         output_layer.updateExtents()
 
+        output_area_total = sum(areas_out)
+        self.report = {
+            "blocks_in": len(raw_features),
+            "blocks_skipped": skipped,
+            "parcels": count,
+            "input_area": round(input_area_total, 2),
+            "output_area": round(output_area_total, 2),
+            "coverage_pct": round(
+                100.0 * output_area_total / input_area_total, 2
+            ) if input_area_total > 0 else 0.0,
+            "area_min": round(min(areas_out), 2) if areas_out else 0.0,
+            "area_mean": round(output_area_total / len(areas_out), 2) if areas_out else 0.0,
+            "area_median": round(_median(areas_out), 2),
+            "area_max": round(max(areas_out), 2) if areas_out else 0.0,
+            "frontage_mean": round(
+                sum(frontages_out) / len(frontages_out), 2) if frontages_out else 0.0,
+            "merged": merged_total,
+            "resplit": resplit_total,
+            "flag_oversize": flag_counts["oversize"],
+            "flag_undersize": flag_counts["undersize"],
+            "flag_narrow": flag_counts["narrow"],
+        }
+
         _emit(100, f"Done. {count} parcel(s) produced.")
         return output_layer, None
+
+    @staticmethod
+    def _resplit_to_max_area(geom, max_area, check_cancel=None, depth=0):
+        """Bisect a parcel across its long axis until every piece fits max_area.
+
+        Returns a list of geometries whose combined area equals the input; the
+        original geometry is returned unchanged when it cannot be split without
+        producing slivers, so coverage is never lost.
+        """
+        if geom is None or geom.isEmpty():
+            return []
+        if geom.area() <= max_area or depth >= _MAX_RESPLIT_DEPTH:
+            return [geom]
+        if check_cancel:
+            check_cancel()
+
+        halves = ParcelFluxCore._bisect(geom)
+        if not halves:
+            return [geom]
+
+        pieces = []
+        for half in halves:
+            pieces.extend(
+                ParcelFluxCore._resplit_to_max_area(
+                    half, max_area, check_cancel, depth + 1)
+            )
+        return pieces or [geom]
+
+    @staticmethod
+    def _bisect(geom):
+        """Cut a polygon in two, perpendicular to the long axis of its OBB.
+
+        Half-plane intersection is used rather than QgsGeometry.splitGeometry:
+        the split result tuple differs between QGIS 3 and 4, and intersection
+        keeps the two halves exactly complementary.
+        """
+        obb_result = geom.orientedMinimumBoundingBox()
+        obb = obb_result[0] if isinstance(obb_result, (tuple, list)) else obb_result
+        if obb is None or obb.isEmpty():
+            return []
+        # An oriented bounding box is a single rectangle, but read it
+        # multipart-safely so a surprising driver result cannot raise here.
+        try:
+            rings = (obb.asMultiPolygon()[0] if obb.isMultipart()
+                     else obb.asPolygon())
+            ring = rings[0]
+        except (IndexError, TypeError):
+            return []
+        if len(ring) < 4:
+            return []
+
+        longest = None
+        longest_len = 0.0
+        for idx in range(len(ring) - 1):
+            dx = ring[idx + 1].x() - ring[idx].x()
+            dy = ring[idx + 1].y() - ring[idx].y()
+            length = math.hypot(dx, dy)
+            if length > longest_len:
+                longest_len = length
+                longest = (dx / length, dy / length) if length > 0 else None
+        if longest is None or longest_len <= 0:
+            return []
+
+        centroid = geom.centroid()
+        if centroid is None or centroid.isEmpty():
+            return []
+        center = centroid.asPoint()
+        ux, uy = longest
+        px, py = -uy, ux  # cut direction, perpendicular to the long axis
+        bbox = geom.boundingBox()
+        reach = (bbox.width() + bbox.height() + longest_len) * 2.0 + 10.0
+
+        def _half_plane(sign):
+            a = QgsPointXY(center.x() + px * reach, center.y() + py * reach)
+            b = QgsPointXY(center.x() - px * reach, center.y() - py * reach)
+            c = QgsPointXY(b.x() + sign * ux * reach, b.y() + sign * uy * reach)
+            d = QgsPointXY(a.x() + sign * ux * reach, a.y() + sign * uy * reach)
+            return QgsGeometry.fromPolygonXY([[a, b, c, d, a]])
+
+        halves = []
+        for sign in (1.0, -1.0):
+            part = geom.intersection(_half_plane(sign))
+            if part is None or part.isEmpty():
+                return []
+            for piece in (part.asGeometryCollection() or [part]):
+                if piece is None or piece.isEmpty():
+                    continue
+                if piece.type() != _POLYGON_GEOM:
+                    continue
+                # A sliver here means the cut grazed the parcel; keeping the
+                # parcel whole beats emitting dust.
+                if piece.area() < _SLIVER_AREA:
+                    return []
+                halves.append(piece)
+
+        if len(halves) < 2:
+            return []
+        return halves

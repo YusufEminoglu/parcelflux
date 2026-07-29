@@ -19,14 +19,21 @@
 
 Hand-drawing parcels inside zoning blocks is slow, and naive equal-width splits look artificial. ParcelFlux subdivides blocks into parcels with *natural* variation — tunable width ranges, asymmetric rows, fishbone boundary offsets — while keeping every parcel inside the repaired real block footprint and cleaning up slivers automatically.
 
+**Complete by construction:** the output always covers the input. A parcel that cannot satisfy your area or frontage envelope is split further or flagged — never quietly deleted — and every run reports its coverage so you can see that for yourself.
+
 ## ✨ Features
 
 - **Single/double-row auto-detection** — narrow blocks get one parcel row; wider blocks split into two opposing rows.
+- **Planning constraints** — minimum street frontage, explicit front-row depth, and corner-plot widening, applied during subdivision rather than fixed up afterwards.
+- **Guaranteed coverage** — oversized parcels are bisected across their long axis until they fit; anything still outside the envelope is kept and marked in `pf_flag`.
+- **Quality report** — parcel and block counts, coverage %, area min/median/max, mean frontage, merge and re-split counts after every run.
+- **Preview before committing** — results arrive as a dashed temporary layer with *Apply* / *Discard*.
+- **Seed comparison** — run four seeds at once and pick the layout you like from rendered side-by-side thumbnails.
 - **Width variation** — per-parcel random width within a configurable range for natural-looking streetscapes.
 - **Row width asymmetry** — different parcel widths on opposite sides of the centerline.
 - **Fishbone offset** — organic zigzag at division-line endpoints that mimics traditional settlement morphology.
 - **H-line shift** — asymmetric front/rear depths by moving the centerline away from the geometric midpoint.
-- **3-pass residual merging** — slivers below an area threshold merge into the neighbor with the longest shared edge.
+- **3-pass residual merging** — slivers, undersized parcels and under-fronted parcels merge into the neighbor with the longest shared edge.
 - **Actual-geometry subdivision** — irregular or invalid blocks are repaired and split inside the real footprint; the OBB is only a layout guide.
 - **Computed facade metrics** — exterior frontage, side frontage, rear-edge proxy, corner flag and cardinal front direction.
 - **Collision-safe schema** — generated fields fall back to `planx_*` names when the source layer already uses ParcelFlux names.
@@ -43,8 +50,8 @@ Requires QGIS 3.28 or newer (QGIS 4.x supported). No external Python dependencie
 
 1. Load a zoning block polygon layer.
 2. Open **ParcelFlux** from the menu or toolbar — the dock panel appears.
-3. Select the block layer, set your target lot width (and any variation/asymmetry options), then click **RUN**.
-4. The generated parcel layer is added to the map with facade metrics computed.
+3. Select the block layer, set your target lot width (and any constraint/variation options), then click **RUN**.
+4. Check the **Result** card — coverage should read 100% — then *Apply* the preview to keep it. Not sure which layout you want? **Compare seeds** runs four and lets you pick.
 
 ## ⚙️ Reference
 
@@ -53,8 +60,17 @@ The complete algorithm reference — every parameter with formulas and a step-by
 | Component | Where |
 |-----------|-------|
 | Dock panel UI & run logic | `dialogs/dock.py` |
+| Seed comparison gallery | `dialogs/seed_gallery.py` |
 | Standalone subdivision engine | `algorithms/parcel_flux_core.py` |
 | Algorithm & parameter guide | `docs/guide.html` |
+| Headless engine & dock tests | `tests/smoke_core.py`, `tests/smoke_dock.py` |
+
+Run the tests against a real QGIS from the plugins parent directory:
+
+```bash
+python-qgis-ltr.bat -m parcelflux.tests.smoke_core   # QGIS 3 LTR
+python-qgis.bat     -m parcelflux.tests.smoke_dock   # QGIS 4
+```
 
 Full version history: [CHANGELOG.md](CHANGELOG.md)
 

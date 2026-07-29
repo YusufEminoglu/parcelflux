@@ -62,9 +62,13 @@ layer of parcel polygons with area and optional computed facade metrics.</p>
   <li><strong>Split &amp; Merge</strong> — the block is split by the division lines using
       <code>native:splitwithlines</code>. Residual fragments below the area threshold are
       merged into the neighbor with the longest shared edge, in up to 3 passes.</li>
-  <li><strong>Filter &amp; Output</strong> — parcels exceeding <code>max_area</code> or
-      below 5 m² are excluded. Remaining parcels are written to a memory layer with
-      area and optional ID/facade columns.</li>
+  <li><strong>Constraints</strong> — parcels below <code>min_frontage</code> are merged
+      away in the same passes; parcels above <code>max_area</code> are bisected across
+      their long axis until they fit.</li>
+  <li><strong>Output</strong> — every parcel is written to a memory layer with its area,
+      a <code>pf_flag</code> column, and optional ID/facade columns. Nothing is deleted:
+      a parcel that cannot satisfy the envelope is kept and flagged, so the output always
+      covers the input blocks.</li>
 </ol>
 
 <hr>
@@ -90,8 +94,37 @@ disable hard-minimum enforcement.</p>
 
 <h3>2.3 Maximum Area <code>max_area</code></h3>
 <p><strong>Default:</strong> 2000.0 m² &ensp;|&ensp; <strong>Range:</strong> 0.0 – 999999.0 m²</p>
-<p>Parcels exceeding this area are filtered out of the output. Set to 0 to disable
-the upper area filter and keep all parcels regardless of size.</p>
+<p>A parcel above this limit is <strong>bisected across the long axis of its oriented
+bounding box</strong>, and each half is re-checked, up to five levels deep. A cut that
+would produce a sliver is abandoned and the parcel is kept whole, marked
+<code>oversize</code> in <code>pf_flag</code>. Set to 0 to disable the upper limit.</p>
+<p class="note"><strong>Changed in 0.3.0.</strong> Oversized parcels used to be removed
+from the output. On a block whose natural parcels all exceeded the limit that produced
+an empty result with no explanation, and in a multi-block run individual blocks
+disappeared silently. Coverage is now preserved by construction.</p>
+
+<h3>2.3b Minimum Frontage <code>min_frontage</code></h3>
+<p><strong>Default:</strong> 0.0 m (disabled) &ensp;|&ensp; <strong>Range:</strong> 0.0 – 60.0 m</p>
+<p>Street frontage is the length of a parcel's boundary that lies on the parent block
+boundary. Parcels below this value are merged into the neighbour sharing the longest
+edge. The value must stay below <code>lot_width</code>; otherwise every parcel would
+qualify and the run is rejected before any geometry is built. Parcels still short after
+merging are marked <code>narrow</code>.</p>
+
+<h3>2.3c Parcel Depth <code>parcel_depth</code></h3>
+<p><strong>Default:</strong> 0.0 m (automatic) &ensp;|&ensp; <strong>Range:</strong> 0.0 – 120.0 m</p>
+<p>Pins the depth of the front row instead of splitting the block at its midpoint. The
+ratio is clamped so neither row can collapse, and it takes precedence over
+<code>hline_offset</code>.</p>
+<div class="formula">
+  h_ratio = clamp(parcel_depth / cross_width, 0.15, 0.85)
+</div>
+
+<h3>2.3d Corner Widening <code>corner_widening</code></h3>
+<p><strong>Default:</strong> 0.0 % &ensp;|&ensp; <strong>Range:</strong> 0.0 – 100.0 %</p>
+<p>Grows the first and last parcel of each row, as many zoning codes require for corner
+plots. The interior parcels absorb the difference so the row still spans exactly
+<code>n × lot_width</code>. Rows with fewer than three parcels are left alone.</p>
 
 <h3>2.4 Merge Threshold <code>merge_threshold</code></h3>
 <p><strong>Default:</strong> 35.0 % &ensp;|&ensp; <strong>Range:</strong> 0.0 – 100.0 %</p>
@@ -263,6 +296,9 @@ merged again.</p>
   <tr><td colspan="3"><em>Computed columns</em></td></tr>
   <tr><td><code>parcel_id</code> *</td><td>Integer</td><td>Sequential parcel number (1..N)</td></tr>
   <tr><td><code>area_m2</code></td><td>Double</td><td>Parcel area in square metres</td></tr>
+  <tr><td><code>pf_flag</code></td><td>String</td><td>Empty when the parcel satisfies every
+      constraint, otherwise <code>oversize</code>, <code>undersize</code>, or
+      <code>narrow</code>. Flagged parcels are kept, never deleted.</td></tr>
   <tr><td colspan="3"><em>Computed facade metrics *</em></td></tr>
   <tr><td><code>facade_front</code> *</td><td>String</td><td>Longest exterior frontage touching the parent block boundary</td></tr>
   <tr><td><code>facade_side</code> *</td><td>String</td><td>Additional exterior frontage after the main frontage</td></tr>

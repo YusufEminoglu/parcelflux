@@ -71,14 +71,21 @@ class ParcelFluxPlugin:
                 self.toolbar.removeAction(action)
             if self.menu:
                 self.menu.removeAction(action)
+            action.setParent(None)
             action.deleteLater()
         self.actions.clear()
         if self.toolbar:
+            # removeToolBar() only takes the bar out of the layout; it stays a
+            # child of the main window until the deferred delete runs. Detaching
+            # it explicitly means a plugin reload cannot leave an orphan bar
+            # behind in the same event-loop turn.
             self.iface.mainWindow().removeToolBar(self.toolbar)
+            self.toolbar.setParent(None)
             self.toolbar.deleteLater()
             self.toolbar = None
         if self.menu:
             self.iface.mainWindow().menuBar().removeAction(self.menu.menuAction())
+            self.menu.setParent(None)
             self.menu.deleteLater()
             self.menu = None
         self.panel_action = None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import suppress
 
 from qgis.PyQt.QtCore import Qt, QThread, QUrl, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QIcon, QPalette, QPixmap
@@ -53,6 +54,9 @@ DEFAULTS = {
     "fishbone_offset": 0.0,
     "row_width_asymmetry": 0.0,
     "hline_offset": 0.0,
+    "min_frontage": 0.0,
+    "parcel_depth": 0.0,
+    "corner_widening": 0.0,
     "seed": 42,
     "add_id_fields": True,
     "add_facade_fields": True,
@@ -159,15 +163,27 @@ class _Card(QFrame):
         self._lyt.addRow(widget)
 
 
+_CORE_PARAM_KEYS = (
+    'lot_width', 'min_area', 'max_area', 'merge_threshold', 'uniform_corners',
+    'width_variation', 'fishbone_offset', 'row_width_asymmetry', 'hline_offset',
+    'min_frontage', 'parcel_depth', 'corner_widening',
+    'add_id_fields', 'add_facade_fields', 'selected_only',
+)
+
+
 class _WorkerThread(QThread):
     progress = pyqtSignal(int, str)
-    completed = pyqtSignal(object, object)  # result_layer, error
+    # result_layer(s), error, report(s). Lists when running a seed comparison.
+    completed = pyqtSignal(object, object, object)
     cancelled = pyqtSignal()
 
-    def __init__(self, runner, params, parent=None):
+    def __init__(self, runner, params, seeds=None, parent=None):
         super().__init__(parent)
         self.runner = runner
         self.params = params
+        # A single seed produces one layer; a seed list produces one per seed
+        # so the operator can compare alternatives before committing.
+        self.seeds = list(seeds) if seeds else [params['seed']]
         self._cancel_requested = False
 
     def request_cancel(self) -> None:
@@ -175,40 +191,52 @@ class _WorkerThread(QThread):
         self.requestInterruption()
 
     def run(self):
+        layers = []
+        reports = []
         try:
-            result, error = self.runner.run(
-                input_layer=self.params['input_layer'],
-                lot_width=self.params['lot_width'],
-                min_area=self.params['min_area'],
-                max_area=self.params['max_area'],
-                merge_threshold=self.params['merge_threshold'],
-                uniform_corners=self.params['uniform_corners'],
-                width_variation=self.params['width_variation'],
-                fishbone_offset=self.params['fishbone_offset'],
-                row_width_asymmetry=self.params['row_width_asymmetry'],
-                hline_offset=self.params['hline_offset'],
-                add_id_fields=self.params['add_id_fields'],
-                add_facade_fields=self.params['add_facade_fields'],
-                seed=self.params['seed'],
-                selected_only=self.params['selected_only'],
-                progress_callback=self._emit_progress,
-                cancel_callback=self._is_cancel_requested,
-            )
+            for index, seed in enumerate(self.seeds):
+                if self._is_cancel_requested():
+                    self.cancelled.emit()
+                    return
+                self._seed_index = index
+                call = {key: self.params[key] for key in _CORE_PARAM_KEYS}
+                result, error = self.runner.run(
+                    input_layer=self.params['input_layer'],
+                    seed=seed,
+                    progress_callback=self._emit_progress,
+                    cancel_callback=self._is_cancel_requested,
+                    **call,
+                )
+                if error:
+                    self.completed.emit(None, error, None)
+                    return
+                layers.append(result)
+                reports.append(dict(self.runner.report))
         except Exception as exc:  # last-line safety net
             import traceback
             if self._cancel_requested or self.isInterruptionRequested():
                 self.cancelled.emit()
                 return
-            self.completed.emit(None, f"{exc}\n{traceback.format_exc()}")
+            self.completed.emit(None, f"{exc}\n{traceback.format_exc()}", None)
             return
         if self._cancel_requested or self.isInterruptionRequested():
             self.cancelled.emit()
             return
-        self.completed.emit(result, error)
+        if len(self.seeds) == 1:
+            self.completed.emit(layers[0], None, reports[0])
+        else:
+            self.completed.emit(layers, None, reports)
 
     def _emit_progress(self, pct: int, msg: str) -> None:
-        if not self._cancel_requested and not self.isInterruptionRequested():
-            self.progress.emit(pct, msg)
+        if self._cancel_requested or self.isInterruptionRequested():
+            return
+        count = len(self.seeds)
+        if count > 1:
+            # Spread each run's 0-100 across its slice of the overall bar.
+            index = getattr(self, "_seed_index", 0)
+            pct = int((index * 100 + pct) / count)
+            msg = f"Seed {self.seeds[index]} ({index + 1}/{count}) — {msg}"
+        self.progress.emit(pct, msg)
 
     def _is_cancel_requested(self) -> bool:
         return self._cancel_requested or self.isInterruptionRequested()
@@ -223,6 +251,8 @@ class ParcelFluxDock(QDockWidget):
             Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         self._worker: _WorkerThread | None = None
         self._cancel_requested = False
+        self._preview_layer = None
+        self._compare_seeds = None
         self._build_ui()
         self._apply_stylesheet()
 
@@ -307,7 +337,8 @@ class ParcelFluxDock(QDockWidget):
                            "The polygon layer that contains your zoning blocks (imar adaları).")
         self.input_layer_cb = QgsMapLayerComboBox()
         # FIX: previous setFilters(3) selected raster+no-geometry only, blocking polygon layers.
-        self.input_layer_cb.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        # Scoped enum form: required by Qt6/QGIS 4 and valid in QGIS 3 as well.
+        self.input_layer_cb.setFilters(QgsMapLayerProxyModel.Filter.PolygonLayer)
         self.input_layer_cb.setCurrentIndex(-1)
         self.input_layer_cb.setToolTip("Pick a polygon layer (only polygon layers are listed).")
         self.input_layer_cb.layerChanged.connect(self._refresh_layer_meta)
@@ -340,7 +371,9 @@ class ParcelFluxDock(QDockWidget):
 
         self.max_area = _SliderSpin(
             0.0, 20000.0, DEFAULTS["max_area"], step=50.0, suffix="m²", decimals=0,
-            tooltip="Parcels exceeding this area are filtered from the output. 0 = no upper limit.")
+            tooltip="Parcels exceeding this area are split again across their long axis "
+                    "until they fit. Anything that still cannot fit is kept and flagged, "
+                    "never deleted. 0 = no upper limit.")
         basic.addRow("Max. area:", self.max_area)
 
         self.merge_threshold = _SliderSpin(
@@ -350,8 +383,33 @@ class ParcelFluxDock(QDockWidget):
 
         lay.addWidget(basic)
 
+        # --- Planning constraints card ---
+        rules = _Card("3. Planning Constraints",
+                      "Zoning rules applied during subdivision. 0 = not enforced.")
+        self.min_frontage = _SliderSpin(
+            0.0, 60.0, DEFAULTS["min_frontage"], step=0.5, suffix="m", decimals=1,
+            tooltip="Parcels whose street frontage falls below this are merged into "
+                    "the neighbour sharing the longest edge. Must stay below the lot "
+                    "width. 0 = disable.")
+        rules.addRow("Min. frontage:", self.min_frontage)
+
+        self.parcel_depth = _SliderSpin(
+            0.0, 120.0, DEFAULTS["parcel_depth"], step=1.0, suffix="m", decimals=1,
+            tooltip="Target depth of the front row, in metres. Places the centreline "
+                    "at this distance from the front edge instead of the block midpoint. "
+                    "0 = automatic (midpoint) and lets H-line shift apply.")
+        rules.addRow("Parcel depth:", self.parcel_depth)
+
+        self.corner_widening = _SliderSpin(
+            0.0, 100.0, DEFAULTS["corner_widening"], step=5.0, suffix="%", decimals=0,
+            tooltip="Extra width for the first and last parcel of each row, as many "
+                    "zoning codes require for corner plots. Interior parcels absorb "
+                    "the difference. 0 = disable.")
+        rules.addRow("Corner widening:", self.corner_widening)
+        lay.addWidget(rules)
+
         # --- Advanced params card ---
-        adv = _Card("3. Advanced — Variation & Geometry",
+        adv = _Card("4. Advanced — Variation & Geometry",
                     "Inject organic variation. Leave at 0 for clean uniform grids.")
         self.uniform_corners = QCheckBox("Distribute leftover space evenly to both ends")
         self.uniform_corners.setChecked(DEFAULTS["uniform_corners"])
@@ -377,7 +435,7 @@ class ParcelFluxDock(QDockWidget):
         self.hline_offset = _SliderSpin(
             0.0, 25.0, DEFAULTS["hline_offset"], step=1.0, suffix="%", decimals=0,
             tooltip="Shift centerline away from geometric midpoint, producing asymmetric "
-                    "front/rear depths.")
+                    "front/rear depths. Ignored when Parcel depth is set.")
         adv.addRow("H-line shift:", self.hline_offset)
 
         seed_row = QHBoxLayout()
@@ -400,7 +458,7 @@ class ParcelFluxDock(QDockWidget):
         lay.addWidget(adv)
 
         # --- Output card ---
-        out = _Card("4. Output",
+        out = _Card("5. Output",
                     "Choose what extra columns to attach and what to name the result.")
         self.output_name = QLineEdit(DEFAULTS["output_name"])
         self.output_name.setToolTip("Name of the new layer in the QGIS layer panel.")
@@ -414,7 +472,23 @@ class ParcelFluxDock(QDockWidget):
             "Add computed facade metrics (front length, corner flag, direction, ...)")
         self.add_facade_fields.setChecked(DEFAULTS["add_facade_fields"])
         out.addWidget(self.add_facade_fields)
+
+        self.preview_first = QCheckBox("Preview before adding (Apply / Discard)")
+        self.preview_first.setChecked(True)
+        self.preview_first.setToolTip(
+            "Draw the result as a temporary preview layer. Keep it with Apply, or "
+            "throw it away with Discard and adjust the parameters.")
+        out.addWidget(self.preview_first)
         lay.addWidget(out)
+
+        # --- Report card (filled after a run) ---
+        self.report_card = _Card("Result", "Quality summary of the last run.")
+        self.report_lbl = QLabel("No run yet.")
+        self.report_lbl.setWordWrap(True)
+        self.report_lbl.setTextFormat(Qt.TextFormat.RichText)
+        self.report_card.addWidget(self.report_lbl)
+        self.report_card.setVisible(False)
+        lay.addWidget(self.report_card)
 
         # --- Progress + buttons ---
         self.progress_bar = QProgressBar()
@@ -424,11 +498,34 @@ class ParcelFluxDock(QDockWidget):
         self.progress_bar.setVisible(False)
         lay.addWidget(self.progress_bar)
 
+        preview_row = QHBoxLayout()
+        self.apply_btn = QPushButton("✔  Apply preview")
+        self.apply_btn.setObjectName("PFApplyBtn")
+        self.apply_btn.setToolTip("Keep the preview layer as the final result.")
+        self.apply_btn.clicked.connect(self._on_apply_preview)
+        self.discard_btn = QPushButton("✖  Discard")
+        self.discard_btn.setToolTip("Remove the preview layer from the project.")
+        self.discard_btn.clicked.connect(self._on_discard_preview)
+        preview_row.addWidget(self.apply_btn)
+        preview_row.addWidget(self.discard_btn)
+        self.preview_row_widget = QWidget()
+        self.preview_row_widget.setLayout(preview_row)
+        self.preview_row_widget.setVisible(False)
+        lay.addWidget(self.preview_row_widget)
+
         btn_row = QHBoxLayout()
         self.reset_btn = QPushButton("Reset defaults")
         self.reset_btn.setObjectName("PFResetBtn")
         self.reset_btn.clicked.connect(self._reset_defaults)
         btn_row.addWidget(self.reset_btn)
+
+        self.compare_btn = QPushButton("Compare seeds")
+        self.compare_btn.setObjectName("PFCompareBtn")
+        self.compare_btn.setToolTip(
+            "Run the same parameters with four different seeds and pick the layout "
+            "you like best.")
+        self.compare_btn.clicked.connect(self._on_compare_seeds)
+        btn_row.addWidget(self.compare_btn)
         btn_row.addStretch()
 
         self.run_btn = QPushButton("  ▶  RUN")
@@ -603,8 +700,14 @@ geometries</i> if you get unexpected slivers or missing parcels.</div>
 the longest shared edge. 0 disables the rule.</p>
 
 <h3>3.3 Max. area</h3>
-<p><b>Default:</b> 2000 m². Parcels exceeding this are filtered out.
-Set to 0 to disable the upper area filter.</p>
+<p><b>Default:</b> 2000 m². A parcel above this limit is <b>bisected across its long
+axis</b> and the halves are re-checked, up to five levels deep. A parcel that still
+cannot fit — because every cut would produce a sliver — is written out and marked
+<code>oversize</code> in the <code>pf_flag</code> column. Set to 0 to disable the
+upper limit.</p>
+<div class="tip"><b>Changed in 0.3.0.</b> Oversized parcels used to be dropped from the
+output, which punched holes into the block and could make an entire block disappear
+without a message. Nothing is deleted any more.</div>
 
 <h3>3.4 Merge threshold</h3>
 <p><b>Default:</b> 35%. Residual-merge threshold expressed as % of the mean parcel
@@ -636,6 +739,42 @@ width_B = lot_width × (1 − shift)</div>
 <p>Moves the centerline away from the geometric midpoint, producing asymmetric
 front/rear depths:</p>
 <div class="formula">h_ratio = 0.5 + U(−off, +off)/100</div>
+<p>Ignored when <b>Parcel depth</b> is set, since that pins the centreline exactly.</p>
+
+<h2>4. Planning constraints</h2>
+
+<h3>4.1 Min. frontage</h3>
+<p><b>Default:</b> 0 (off). A parcel whose street frontage — the part of its boundary
+that lies on the parent block boundary — falls below this value is merged into the
+neighbour sharing the longest edge, in the same passes that handle small areas. Must
+stay below the lot width, otherwise every parcel would qualify and the run is rejected
+up front. Parcels that still fall short after merging are marked <code>narrow</code>.</p>
+
+<h3>4.2 Parcel depth</h3>
+<p><b>Default:</b> 0 (automatic). Sets the depth of the front row in metres by placing
+the centreline at that distance from the front edge, instead of at the block midpoint.
+Clamped to 15–85% of the block's cross dimension so a row can never collapse.</p>
+<div class="formula">h_ratio = clamp(parcel_depth / cross_width, 0.15, 0.85)</div>
+
+<h3>4.3 Corner widening</h3>
+<p><b>Default:</b> 0 (off). Many zoning codes require wider plots at block corners.
+The first and last parcel of each row grow by this percentage and the interior parcels
+absorb the difference, so the row still spans exactly the same length.</p>
+<div class="formula">w_corner = w × (1 + c) &ensp;|&ensp;
+w_interior ×= (Σw_interior − extra) / Σw_interior</div>
+
+<h2>5. Reading the result</h2>
+<p>Every run fills the <b>Result</b> card: parcel and block counts, coverage, the
+area min/median/max, mean frontage, and how many parcels were merged or re-split.
+<b>Coverage</b> is the share of the input block area present in the output — it should
+read 100%. Anything less means geometry was lost and is worth investigating.</p>
+<p>The <code>pf_flag</code> column marks parcels outside the requested envelope:
+<code>oversize</code>, <code>undersize</code>, or <code>narrow</code>. They are kept in
+the output on purpose, so a plan is never quietly incomplete.</p>
+<p><b>Preview before adding</b> (on by default) draws the result as a dashed temporary
+layer; <i>Apply</i> keeps it, <i>Discard</i> removes it. <b>Compare seeds</b> runs the
+same parameters against four seeds and shows the layouts side by side so you can pick
+one by eye.</p>
 
 <h3>3.10 Random seed</h3>
 <p>All randomness uses a fixed seed for reproducibility. Same parameters + same seed =
@@ -866,6 +1005,9 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         self.fishbone_offset.setValue(DEFAULTS["fishbone_offset"])
         self.row_width_asymmetry.setValue(DEFAULTS["row_width_asymmetry"])
         self.hline_offset.setValue(DEFAULTS["hline_offset"])
+        self.min_frontage.setValue(DEFAULTS["min_frontage"])
+        self.parcel_depth.setValue(DEFAULTS["parcel_depth"])
+        self.corner_widening.setValue(DEFAULTS["corner_widening"])
         self.seed_spin.setValue(DEFAULTS["seed"])
         self.add_id_fields.setChecked(DEFAULTS["add_id_fields"])
         self.add_facade_fields.setChecked(DEFAULTS["add_facade_fields"])
@@ -927,7 +1069,10 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
             self._set_status("No features selected.", "warn")
             return
 
-        params = {
+        self._start_job(self._collect_params(input_layer))
+
+    def _collect_params(self, input_layer) -> dict:
+        return {
             'input_layer': input_layer,
             'lot_width': self.lot_width.value(),
             'min_area': self.min_area.value(),
@@ -938,22 +1083,48 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
             'fishbone_offset': self.fishbone_offset.value(),
             'row_width_asymmetry': self.row_width_asymmetry.value(),
             'hline_offset': self.hline_offset.value(),
+            'min_frontage': self.min_frontage.value(),
+            'parcel_depth': self.parcel_depth.value(),
+            'corner_widening': self.corner_widening.value(),
             'seed': self.seed_spin.value(),
             'add_id_fields': self.add_id_fields.isChecked(),
             'add_facade_fields': self.add_facade_fields.isChecked(),
             'selected_only': self.selected_only_cb.isChecked(),
         }
 
+    def _start_job(self, params, seeds=None) -> None:
+        self._discard_preview_layer(silent=True)
         self._cancel_requested = False
+        self._compare_seeds = list(seeds) if seeds else None
         self._set_running(True)
-        self._set_status("Running …", "info")
+        self._set_status(
+            "Comparing seeds …" if seeds else "Running …", "info")
 
         from ..algorithms.parcel_flux_core import ParcelFluxCore
-        self._worker = _WorkerThread(ParcelFluxCore(), params)
+        self._worker = _WorkerThread(ParcelFluxCore(), params, seeds=seeds)
         self._worker.progress.connect(self._on_progress)
         self._worker.completed.connect(self._on_finished)
         self._worker.cancelled.connect(self._on_cancelled)
         self._worker.start()
+
+    def _on_compare_seeds(self) -> None:
+        """Run the same parameters against four seeds and let the user choose."""
+        if self._worker and self._worker.isRunning():
+            return
+        input_layer = self.input_layer_cb.currentLayer()
+        if input_layer is None:
+            QMessageBox.warning(self, "ParcelFlux", "Please select a polygon block layer.")
+            return
+        if input_layer.crs().isGeographic():
+            QMessageBox.warning(
+                self, "ParcelFlux",
+                "The selected layer is in a geographic CRS (degrees). Reproject to a "
+                "projected metric CRS first.")
+            return
+
+        base = self.seed_spin.value()
+        seeds = [base, base + 101, base + 727, base + 4242]
+        self._start_job(self._collect_params(input_layer), seeds=seeds)
 
     def _on_cancel(self) -> None:
         if self._worker and self._worker.isRunning():
@@ -969,7 +1140,9 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
     def _on_cancelled(self) -> None:
         self._cancel_requested = False
         self._worker = None
+        self._compare_seeds = None
         self._set_running(False)
+        self.preview_row_widget.setVisible(False)
         self._set_status("Cancelled. No output layer was added.", "warn")
 
     def _on_progress(self, pct: int, msg: str) -> None:
@@ -978,7 +1151,7 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         self.progress_bar.setValue(pct)
         self._set_status(msg, "info")
 
-    def _on_finished(self, result_layer, error) -> None:
+    def _on_finished(self, result_layer, error, report=None) -> None:
         if self._cancel_requested:
             self._on_cancelled()
             return
@@ -990,19 +1163,157 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
             self._set_status(f"Error: {short}", "error")
             return
 
+        if isinstance(result_layer, list):
+            self._on_seed_comparison(result_layer, report or [])
+            return
+
         if result_layer is None or result_layer.featureCount() == 0:
             self._set_status(
                 "Finished, but 0 parcels produced. Try widening the area window "
                 "or lowering the merge threshold.", "warn")
             return
 
-        from qgis.core import QgsProject
-        name = self.output_name.text().strip() or DEFAULTS["output_name"]
-        result_layer.setName(name)
-        QgsProject.instance().addMapLayer(result_layer)
         self.progress_bar.setValue(100)
+        self._show_report(report)
+        self._deliver(result_layer, report)
+
+    def _deliver(self, layer, report) -> None:
+        """Add the result as a preview, or straight as the final layer."""
+        from qgis.core import QgsProject
+
+        name = self.output_name.text().strip() or DEFAULTS["output_name"]
+        if self.preview_first.isChecked():
+            layer.setName(f"{name} (preview)")
+            self._style_preview(layer)
+            QgsProject.instance().addMapLayer(layer)
+            self._preview_layer = layer
+            self.preview_row_widget.setVisible(True)
+            self._set_status(
+                f"Preview — {layer.featureCount()} parcels. "
+                "Apply to keep, Discard to try other settings.", "info")
+        else:
+            layer.setName(name)
+            QgsProject.instance().addMapLayer(layer)
+            self._preview_layer = None
+            self.preview_row_widget.setVisible(False)
+            self._set_status(
+                f"Done — {layer.featureCount()} parcels added as '{name}'.", "ok")
+
+    @staticmethod
+    def _style_preview(layer) -> None:
+        """Dashed outline so a preview never reads as a finished layer."""
+        with suppress(Exception):
+            from qgis.core import QgsFillSymbol
+
+            symbol = QgsFillSymbol.createSimple({
+                'color': '46,125,50,40',
+                'outline_color': '46,125,50,255',
+                'outline_width': '0.5',
+                'outline_style': 'dash',
+            })
+            layer.renderer().setSymbol(symbol)
+
+    def _on_apply_preview(self) -> None:
+        layer = getattr(self, "_preview_layer", None)
+        if layer is None:
+            return
+        name = self.output_name.text().strip() or DEFAULTS["output_name"]
+        layer.setName(name)
+        with suppress(Exception):
+            layer.renderer().symbol().setOpacity(1.0)
+        self._preview_layer = None
+        self.preview_row_widget.setVisible(False)
         self._set_status(
-            f"Done — {result_layer.featureCount()} parcels added as '{name}'.", "ok")
+            f"Applied — {layer.featureCount()} parcels kept as '{name}'.", "ok")
+
+    def _on_discard_preview(self) -> None:
+        self._discard_preview_layer()
+        self._set_status("Preview discarded. Adjust the settings and run again.", "info")
+
+    def _discard_preview_layer(self, silent: bool = False) -> None:
+        layer = getattr(self, "_preview_layer", None)
+        self._preview_layer = None
+        self.preview_row_widget.setVisible(False)
+        if layer is None:
+            return
+        try:
+            from qgis.core import QgsProject
+
+            QgsProject.instance().removeMapLayer(layer.id())
+        except Exception:
+            if not silent:
+                raise
+
+    def _show_report(self, report) -> None:
+        """Render the run's quality summary into the Result card."""
+        if not report:
+            self.report_card.setVisible(False)
+            return
+
+        coverage = report.get("coverage_pct", 0.0)
+        coverage_colour = ACCENT if coverage >= 99.5 else WARN
+        flagged = (report.get("flag_oversize", 0)
+                   + report.get("flag_undersize", 0)
+                   + report.get("flag_narrow", 0))
+
+        rows = [
+            ("Parcels", f"{report.get('parcels', 0)}"),
+            ("Blocks", f"{report.get('blocks_in', 0)}"
+                       + (f" ({report['blocks_skipped']} skipped)"
+                          if report.get("blocks_skipped") else "")),
+            ("Coverage",
+             f"<span style='color:{coverage_colour};'><b>{coverage:.1f}%</b></span> "
+             f"({report.get('output_area', 0):,.0f} / "
+             f"{report.get('input_area', 0):,.0f} m²)"),
+            ("Area min / median / max",
+             f"{report.get('area_min', 0):,.0f} / "
+             f"{report.get('area_median', 0):,.0f} / "
+             f"{report.get('area_max', 0):,.0f} m²"),
+            ("Mean area", f"{report.get('area_mean', 0):,.0f} m²"),
+            ("Mean frontage", f"{report.get('frontage_mean', 0):,.1f} m"),
+            ("Merged / re-split",
+             f"{report.get('merged', 0)} / {report.get('resplit', 0)}"),
+        ]
+        if flagged:
+            rows.append((
+                "Flagged",
+                f"<span style='color:{WARN};'>"
+                f"{report.get('flag_oversize', 0)} oversize · "
+                f"{report.get('flag_undersize', 0)} undersize · "
+                f"{report.get('flag_narrow', 0)} narrow</span>"))
+
+        body = "".join(
+            f"<tr><td style='padding-right:10px; color:{MUTED};'>{key}</td>"
+            f"<td><b>{value}</b></td></tr>"
+            for key, value in rows
+        )
+        note = ""
+        if flagged:
+            note = (f"<p style='color:{MUTED}; margin-top:6px;'>Flagged parcels are "
+                    f"kept in the output and marked in the <code>pf_flag</code> "
+                    f"column — nothing is deleted.</p>")
+        self.report_lbl.setText(f"<table>{body}</table>{note}")
+        self.report_card.setVisible(True)
+
+    def _on_seed_comparison(self, layers, reports) -> None:
+        """Offer the four seed results and add the one the operator picks."""
+        from .seed_gallery import SeedGalleryDialog
+
+        seeds = self._compare_seeds or list(range(len(layers)))
+        # None of the candidates are in the project yet, so the ones that are
+        # not chosen simply fall out of scope.
+        dialog = SeedGalleryDialog(
+            list(zip(seeds, layers, reports)), self.iface, self)
+        chosen = dialog.exec()
+        index = dialog.selected_index() if chosen else -1
+
+        if index < 0:
+            self._set_status("Seed comparison closed. Nothing was added.", "info")
+            return
+
+        self.seed_spin.setValue(seeds[index])
+        self._show_report(reports[index] if index < len(reports) else None)
+        self._deliver(layers[index], reports[index] if index < len(reports) else None)
 
     def detach_worker_for_shutdown(self) -> None:
         worker = self._worker
@@ -1041,8 +1352,9 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
             self.lot_width, self.min_area, self.max_area, self.merge_threshold,
             self.uniform_corners, self.width_variation, self.fishbone_offset,
             self.row_width_asymmetry, self.hline_offset, self.seed_spin,
+            self.min_frontage, self.parcel_depth, self.corner_widening,
             self.output_name, self.add_id_fields, self.add_facade_fields,
-            self.reset_btn,
+            self.preview_first, self.reset_btn, self.compare_btn,
         ]
         self.progress_bar.setVisible(running)
         if running:

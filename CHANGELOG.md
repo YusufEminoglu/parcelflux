@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.0] - 2026-07-29
+
+Complete, verifiable subdivision: nothing is deleted behind your back, planning
+rules are enforced during the split, and the plugin finally has a test suite.
+
+### Fixed
+- **Oversized parcels are no longer deleted.** `max_area` used to filter parcels out of the output, which punched holes into the block. With the default 2000 m² limit a block whose natural parcels came out larger produced **zero parcels**, and in a multi-block run individual blocks disappeared with no message at all. Oversized parcels are now bisected across the long axis of their oriented bounding box until they fit; a cut that would produce a sliver is abandoned and the parcel is kept whole and flagged. Output area now equals input area.
+- **Slivers are merged instead of dropped.** Parcels under 5 m² join the merge passes rather than being discarded at write time; only numerical dust below 0.01 m² is skipped.
+- **Plugin unload leaves no orphan toolbar.** `removeToolBar()` only detaches a toolbar from the layout, so the bar stayed a child of the QGIS window until the deferred delete ran — a plugin reload could leave the old bar behind. The toolbar, menu and actions are now explicitly re-parented before deletion.
+
+### Added
+- **Minimum frontage** constraint — parcels whose street frontage (the part of their boundary on the block boundary) falls below the threshold are merged into the neighbour sharing the longest edge. Values at or above the lot width are rejected up front instead of merging everything away.
+- **Parcel depth** — pin the front row to an explicit depth in metres instead of splitting the block at its midpoint. Clamped to 15–85% of the block's cross dimension, and takes precedence over H-line shift.
+- **Corner widening** — grow the first and last parcel of each row by a percentage, as many zoning codes require for corner plots; interior parcels absorb the difference so the row span is unchanged.
+- **`pf_flag` output column** — empty for a conforming parcel, otherwise `oversize`, `undersize`, or `narrow`. Flagged parcels stay in the output on purpose.
+- **Quality report** after every run: parcel and block counts, coverage %, area min/mean/median/max, mean frontage, and merge/re-split counts. Coverage below 100% now surfaces immediately instead of hiding in the geometry.
+- **Preview before adding** (on by default) — results arrive as a dashed temporary layer with *Apply* and *Discard*.
+- **Compare seeds** — run the same parameters against four seeds and choose from rendered side-by-side thumbnails with each candidate's statistics.
+
+### Changed
+- Frontage measurement is backed by a spatial index over the block boundary edges rather than a linear scan per parcel segment, which is what makes the frontage constraint affordable.
+- `max_area` below `min_area` is now rejected as a contradiction instead of silently emptying the output.
+
+### Quality
+- **First automated tests in the plugin's history**: `tests/smoke_core.py` (17 engine checks — coverage invariants, seed determinism, each planning constraint, parameter validation, irregular-block containment) and `tests/smoke_dock.py` (16 UI and lifecycle checks — parameter plumbing, report card, preview Apply/Discard, seed gallery rendering, plugin load/unload). Both suites pass on QGIS 3.44 LTR and QGIS 4.2. The unload defect above was found by writing them.
+
 ## [0.2.13] - 2026-07-21
 
 - Fix splitwithlines freeze on irregular blocks: split the OBB (fast, 4-vertex rectangle) and clip parcels back to the real block footprint — same accurate result as v0.2.10's "keep real geometry" intent without the hang.
