@@ -171,7 +171,9 @@ def _skip_invalid_ctx() -> QgsProcessingContext:
     user to change global Processing settings.
     """
     ctx = QgsProcessingContext()
-    ctx.setInvalidGeometryCheck(QgsFeatureRequest.GeometrySkipInvalid)
+    # Scoped enum form: required by Qt6/QGIS 4 and valid in QGIS 3 as well.
+    ctx.setInvalidGeometryCheck(
+        QgsFeatureRequest.InvalidGeometryCheck.GeometrySkipInvalid)
     return ctx
 
 
