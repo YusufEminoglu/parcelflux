@@ -3,7 +3,7 @@ name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Subdivide zoning blocks into parcels with minimum-frontage, depth and corner rules, width variation, row asymmetry, fishbone offset, and automatic residual merging.
-version=0.3.0
+version=0.3.1
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
@@ -23,6 +23,9 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.3.1 - Palette-aware adaptive theme.
+        Changed: replace every hardcoded colour in the dock, seed gallery, guide and about HTML with palette-derived tokens so the entire UI stays readable under QGIS light, dark and high-contrast themes while keeping the ParcelFlux green accent identity.
+        Added: theme.py module with WCAG contrast-ratio checks, palette-aware colour tokens, and a single apply_adaptive_theme() entry point; the dock now listens for PaletteChange and re-applies the theme automatically when the user switches themes.
     0.3.0 - Complete, verifiable subdivision.
         Fix: oversized parcels are no longer deleted from the output. max_area used to filter them out, punching holes into the block; with the default 2000 m2 limit a whole block could produce zero parcels and vanish without a message. Oversized parcels are now bisected across their long axis until they fit, and anything that still cannot fit is kept and flagged. Output area now equals input area.
         Fix: slivers are merged into a neighbour instead of being discarded at write time.

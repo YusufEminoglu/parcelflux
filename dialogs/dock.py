@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from contextlib import suppress
 
-from qgis.PyQt.QtCore import Qt, QThread, QUrl, pyqtSignal
+from qgis.PyQt.QtCore import QEvent, Qt, QThread, QUrl, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QIcon, QPalette, QPixmap
 from qgis.PyQt.QtWidgets import (
     QCheckBox,
@@ -34,14 +34,7 @@ from qgis.PyQt.QtWidgets import (
 from qgis.core import QgsMapLayerProxyModel
 from qgis.gui import QgsMapLayerComboBox
 
-# Brand palette
-ACCENT = "#2E7D32"          # deep green, ParcelFlux brand
-ACCENT_HOVER = "#1B5E20"
-ACCENT_SOFT = "#E8F5E9"
-WARN = "#EF6C00"
-ERROR = "#C62828"
-INFO = "#1565C0"
-MUTED = "#616161"
+from .theme import apply_adaptive_theme
 
 # Default parameter set — used by the Reset button
 DEFAULTS = {
@@ -142,12 +135,12 @@ class _Card(QFrame):
         outer.setContentsMargins(12, 10, 12, 12)
         outer.setSpacing(6)
         head = QLabel(f"<b>{title}</b>")
-        head.setStyleSheet(f"color: {ACCENT}; font-size: 11pt;")
+        head.setObjectName("PFCardTitle")
         outer.addWidget(head)
         if subtitle:
             sub = QLabel(subtitle)
+            sub.setObjectName("PFCardSubtitle")
             sub.setWordWrap(True)
-            sub.setStyleSheet(f"color: {MUTED}; font-size: 9pt;")
             outer.addWidget(sub)
         self._content = QWidget()
         self._lyt = QFormLayout(self._content)
@@ -254,7 +247,7 @@ class ParcelFluxDock(QDockWidget):
         self._preview_layer = None
         self._compare_seeds = None
         self._build_ui()
-        self._apply_stylesheet()
+        self._apply_theme()
 
     # =================================================================
     # UI BUILD
@@ -262,6 +255,7 @@ class ParcelFluxDock(QDockWidget):
 
     def _build_ui(self) -> None:
         root_container = QWidget()
+        root_container.setObjectName("ParcelFluxRoot")
         root_lyt = QVBoxLayout(root_container)
         root_lyt.setContentsMargins(8, 8, 8, 8)
         root_lyt.setSpacing(6)
@@ -301,9 +295,9 @@ class ParcelFluxDock(QDockWidget):
         title_block = QVBoxLayout()
         title_block.setSpacing(0)
         title = QLabel("<b>ParcelFlux</b>")
-        title.setStyleSheet("font-size: 13pt; color: white;")
+        title.setObjectName("PFHeaderTitle")
         subtitle = QLabel("Block → Parcel Subdivision Engine")
-        subtitle.setStyleSheet("color: #C8E6C9; font-size: 9pt;")
+        subtitle.setObjectName("PFHeaderSubtitle")
         title_block.addWidget(title)
         title_block.addWidget(subtitle)
         h.addLayout(title_block)
@@ -345,7 +339,7 @@ class ParcelFluxDock(QDockWidget):
         input_card.addRow("Block layer:", self.input_layer_cb)
 
         self.layer_meta_lbl = QLabel("No layer selected.")
-        self.layer_meta_lbl.setStyleSheet(f"color: {MUTED}; font-size: 9pt;")
+        self.layer_meta_lbl.setObjectName("PFLayerMeta")
         self.layer_meta_lbl.setWordWrap(True)
         input_card.addWidget(self.layer_meta_lbl)
 
@@ -585,13 +579,25 @@ class ParcelFluxDock(QDockWidget):
 
         sub = QLabel("Block-to-Parcel Subdivision Engine for QGIS")
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sub.setStyleSheet(f"color: {MUTED};")
+        sub.setObjectName("PFSubtitle")
         lay.addWidget(sub)
 
         body = QTextBrowser()
         body.setOpenExternalLinks(True)
-        body.setHtml(f"""
-        <div style='font-family: Segoe UI, sans-serif;'>
+        body.setObjectName("PFAboutBody")
+        body.setHtml(self._about_html())
+        lay.addWidget(body, 1)
+        return wrap
+
+    # =================================================================
+    # ABOUT HTML
+    # =================================================================
+
+    def _about_html(self) -> str:
+        from .theme import dock_color_tokens
+        c = dock_color_tokens()
+        return f"""
+        <div style='font-family: Segoe UI, sans-serif; color:{c["text"]};'>
           <p><b>Author:</b> Yusuf Eminoğlu<br>
              <b>Affiliation:</b> Dokuz Eylül University, Department of City and Regional Planning<br>
              <b>License:</b> GPL-3.0<br>
@@ -602,7 +608,7 @@ class ParcelFluxDock(QDockWidget):
              <a href='https://github.com/YusufEminoglu'>PlanX</a> ecosystem of urban-planning
              QGIS plugins.</p>
 
-          <p style='color:{ACCENT};'><b>Highlights</b></p>
+          <p style='color:{c["accent"]};'><b>Highlights</b></p>
           <ul>
             <li>Single/double-row auto-detection based on block geometry</li>
             <li>Row-width asymmetry, fishbone offset, H-line shift, width variation</li>
@@ -611,19 +617,17 @@ class ParcelFluxDock(QDockWidget):
             <li>Reproducible randomness via configurable seed</li>
           </ul>
 
-          <p style='color:{ACCENT};'><b>Links</b></p>
+          <p style='color:{c["accent"]};'><b>Links</b></p>
           <ul>
             <li><a href='https://github.com/YusufEminoglu/parcelflux'>Source code (GitHub)</a></li>
             <li><a href='https://github.com/YusufEminoglu/parcelflux/issues'>Issue tracker</a></li>
           </ul>
 
-          <p style='color:{MUTED}; font-size:9pt;'>
+          <p style='color:{c["subtle"]}; font-size:9pt;'>
             If ParcelFlux helps your research or practice, please cite the GitHub repository.
           </p>
         </div>
-        """)
-        lay.addWidget(body, 1)
-        return wrap
+        """
 
     # =================================================================
     # GUIDE HTML
@@ -631,25 +635,28 @@ class ParcelFluxDock(QDockWidget):
 
     def _guide_html(self) -> str:
         """Long-form, in-panel guide. Self-contained — no external assets."""
+        from .theme import dock_color_tokens
+        c = dock_color_tokens()
         return f"""
 <html><head><style>
-  body {{ font-family: 'Segoe UI', sans-serif; color: #222; line-height: 1.5; }}
-  h1 {{ color: {ACCENT}; border-bottom: 2px solid {ACCENT}; padding-bottom: 4px; }}
-  h2 {{ color: {ACCENT}; margin-top: 22px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }}
-  h3 {{ margin-top: 18px; color: #333; }}
-  code {{ background:#f0f0f0; padding:1px 5px; border-radius:3px; }}
-  .formula {{ background: {ACCENT_SOFT}; border-left: 4px solid {ACCENT};
+  body {{ font-family: 'Segoe UI', sans-serif; color: {c['text']}; line-height: 1.5; }}
+  h1 {{ color: {c['accent']}; border-bottom: 2px solid {c['accent']}; padding-bottom: 4px; }}
+  h2 {{ color: {c['accent']}; margin-top: 22px; border-bottom: 1px solid {c['border']}; padding-bottom: 2px; }}
+  h3 {{ margin-top: 18px; color: {c['text']}; }}
+  code {{ background:{c['accent_soft']}; padding:1px 5px; border-radius:3px; color:{c['text']}; }}
+  .formula {{ background: {c['accent_soft']}; border-left: 4px solid {c['accent']};
               padding: 8px 12px; margin: 8px 0; font-family: Consolas, monospace; }}
-  .note {{ background: #FFF8E1; border-left: 4px solid {WARN};
+  .note {{ background: {c['status_bg']}; border-left: 4px solid {c['warn']};
            padding: 8px 12px; margin: 8px 0; }}
-  .tip {{ background: #E3F2FD; border-left: 4px solid {INFO};
+  .tip {{ background: {c['status_bg']}; border-left: 4px solid {c['info']};
           padding: 8px 12px; margin: 8px 0; }}
   table {{ border-collapse: collapse; width: 100%; margin: 8px 0; }}
-  th, td {{ border: 1px solid #ccc; padding: 5px 8px; text-align: left; vertical-align: top; }}
-  th {{ background: {ACCENT_SOFT}; color: {ACCENT}; }}
-  .diagram {{ background: #FAFAFA; border: 1px solid #e0e0e0; padding: 8px;
+  th, td {{ border: 1px solid {c['border']}; padding: 5px 8px; text-align: left; vertical-align: top; }}
+  th {{ background: {c['accent_soft']}; color: {c['accent']}; }}
+  .diagram {{ background: {c['card']}; border: 1px solid {c['border']}; padding: 8px;
               font-family: Consolas, monospace; white-space: pre; }}
-  hr {{ border: none; border-top: 1px solid #e0e0e0; margin: 16px 0; }}
+  hr {{ border: none; border-top: 1px solid {c['border']}; margin: 16px 0; }}
+  a {{ color: {c['accent']}; }}
 </style></head><body>
 
 <h1>ParcelFlux — Elite User Guide</h1>
@@ -868,7 +875,7 @@ This makes it suitable for academic publications: cite the version
 (<code>0.2.10</code>) and the seed used.</p>
 
 <hr>
-<p style='color:{MUTED}; font-size: 9pt;'>
+<p style='color:{c["subtle"]}; font-size: 9pt;'>
 ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
 </p>
 </body></html>
@@ -878,97 +885,15 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
     # STYLE
     # =================================================================
 
-    def _apply_stylesheet(self) -> None:
-        self.setStyleSheet(f"""
-        QFrame#PFHeader {{
-            background-color: {ACCENT};
-            border-radius: 6px;
-        }}
-        QToolButton#PFHelpBtn {{
-            background: rgba(255,255,255,0.18);
-            color: white;
-            font-weight: bold;
-            border: 1px solid rgba(255,255,255,0.4);
-            border-radius: 12px;
-            padding: 2px 9px;
-        }}
-        QToolButton#PFHelpBtn:hover {{
-            background: rgba(255,255,255,0.30);
-        }}
-        QTabWidget#PFTabs::pane {{
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
-            top: -1px;
-        }}
-        QTabBar::tab {{
-            padding: 6px 16px;
-            background: #f1f1f1;
-            border: 1px solid #d0d0d0;
-            border-bottom: none;
-            border-top-left-radius: 4px;
-            border-top-right-radius: 4px;
-            margin-right: 2px;
-            font-size: 10pt;
-        }}
-        QTabBar::tab:selected {{
-            background: white;
-            color: {ACCENT};
-            font-weight: bold;
-        }}
-        QFrame#PFCard {{
-            background: #FAFAFA;
-            border: 1px solid #E0E0E0;
-            border-radius: 6px;
-        }}
-        QPushButton#PFRunBtn {{
-            background-color: {ACCENT};
-            color: white;
-            font-weight: bold;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 18px;
-            font-size: 11pt;
-        }}
-        QPushButton#PFRunBtn:hover {{ background-color: {ACCENT_HOVER}; }}
-        QPushButton#PFRunBtn:disabled {{ background-color: #BDBDBD; color: #757575; }}
-        QPushButton#PFRunBtn[busy="true"] {{
-            background-color: {ERROR};
-        }}
-        QPushButton#PFResetBtn, QPushButton#PFGhostBtn {{
-            background: white;
-            border: 1px solid {ACCENT};
-            color: {ACCENT};
-            border-radius: 4px;
-            padding: 6px 14px;
-        }}
-        QPushButton#PFResetBtn:hover, QPushButton#PFGhostBtn:hover {{
-            background: {ACCENT_SOFT};
-        }}
-        QLabel#PFStatus {{
-            background: #F5F5F5;
-            border: 1px solid #E0E0E0;
-            border-radius: 4px;
-            padding: 6px 10px;
-            color: #424242;
-            font-size: 9.5pt;
-        }}
-        QLabel#PFStatus[severity="info"]  {{ border-left: 4px solid {INFO}; }}
-        QLabel#PFStatus[severity="ok"]    {{ border-left: 4px solid {ACCENT}; }}
-        QLabel#PFStatus[severity="warn"]  {{ border-left: 4px solid {WARN}; }}
-        QLabel#PFStatus[severity="error"] {{ border-left: 4px solid {ERROR};
-                                             background: #FFEBEE; }}
-        QProgressBar {{
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
-            background: white;
-            text-align: center;
-            height: 16px;
-        }}
-        QProgressBar::chunk {{
-            background-color: {ACCENT};
-            border-radius: 3px;
-        }}
-        """)
+    def _apply_theme(self) -> None:
+        root = self.widget()
+        if root is None or getattr(self, "_theme_refreshing", False):
+            return
+        self._theme_refreshing = True
+        try:
+            apply_adaptive_theme(root)
+        finally:
+            self._theme_refreshing = False
         self._set_status("Ready. Pick a polygon layer and press RUN.", "info")
 
     # =================================================================
@@ -988,8 +913,10 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         crs = layer.crs()
         feat_count = layer.featureCount()
         is_geographic = crs.isGeographic()
+        from .theme import dock_color_tokens
+        error_color = dock_color_tokens()["error"]
         crs_warn = (" — <span style='color:%s;'><b>WARNING:</b> geographic CRS, "
-                    "please reproject to a metric CRS first.</span>" % ERROR
+                    "please reproject to a metric CRS first.</span>" % error_color
                     ) if is_geographic else ""
         self.layer_meta_lbl.setText(
             f"<b>{layer.name()}</b> · {feat_count} features · "
@@ -1250,8 +1177,14 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
             self.report_card.setVisible(False)
             return
 
+        from .theme import dock_color_tokens
+        t = dock_color_tokens()
+        accent = t["accent"]
+        warn = t["warn"]
+        subtle = t["subtle"]
+
         coverage = report.get("coverage_pct", 0.0)
-        coverage_colour = ACCENT if coverage >= 99.5 else WARN
+        coverage_colour = accent if coverage >= 99.5 else warn
         flagged = (report.get("flag_oversize", 0)
                    + report.get("flag_undersize", 0)
                    + report.get("flag_narrow", 0))
@@ -1277,19 +1210,19 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         if flagged:
             rows.append((
                 "Flagged",
-                f"<span style='color:{WARN};'>"
+                f"<span style='color:{warn};'>"
                 f"{report.get('flag_oversize', 0)} oversize · "
                 f"{report.get('flag_undersize', 0)} undersize · "
                 f"{report.get('flag_narrow', 0)} narrow</span>"))
 
         body = "".join(
-            f"<tr><td style='padding-right:10px; color:{MUTED};'>{key}</td>"
+            f"<tr><td style='padding-right:10px; color:{subtle};'>{key}</td>"
             f"<td><b>{value}</b></td></tr>"
             for key, value in rows
         )
         note = ""
         if flagged:
-            note = (f"<p style='color:{MUTED}; margin-top:6px;'>Flagged parcels are "
+            note = (f"<p style='color:{subtle}; margin-top:6px;'>Flagged parcels are "
                     f"kept in the output and marked in the <code>pf_flag</code> "
                     f"column — nothing is deleted.</p>")
         self.report_lbl.setText(f"<table>{body}</table>{note}")
@@ -1368,6 +1301,14 @@ ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
         self.run_btn.style().polish(self.run_btn)
         for w in widgets:
             w.setEnabled(not running)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() in (
+            QEvent.Type.PaletteChange,
+            QEvent.Type.ApplicationPaletteChange,
+        ):
+            self._apply_theme()
 
     def closeEvent(self, event) -> None:  # noqa: D401
         if self._worker and self._worker.isRunning():

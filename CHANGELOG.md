@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.1] - 2026-08-03
+
+### Changed
+- Replace every hardcoded colour in the dock and seed gallery with palette-derived
+  tokens. The entire UI now stays readable under QGIS light, dark, high-contrast,
+  and custom themes while keeping the ParcelFlux green accent identity.
+- Add a dedicated `theme.py` module with WCAG contrast-ratio checks, palette-aware
+  colour tokens, and a single `apply_adaptive_theme()` entry point.
+- The dock listens for `PaletteChange` events and re-applies the theme
+  automatically when the user switches between QGIS themes.
+- Guide and About HTML content now injects palette colours at render time instead
+  of assuming a light background.
+
 ## [0.3.0] - 2026-07-29
 
 Complete, verifiable subdivision: nothing is deleted behind your back, planning

@@ -8,8 +8,9 @@ candidate and shows its quality summary, so the operator picks by eye.
 from __future__ import annotations
 
 from qgis.PyQt.QtCore import QSize, Qt
-from qgis.PyQt.QtGui import QColor, QImage, QPixmap
+from qgis.PyQt.QtGui import QColor, QImage, QPalette, QPixmap
 from qgis.PyQt.QtWidgets import (
+    QApplication,
     QDialog,
     QDialogButtonBox,
     QFrame,
@@ -24,26 +25,58 @@ from qgis.core import (
 )
 
 THUMB = QSize(260, 200)
-ACCENT = "#2E7D32"
-MUTED = "#616161"
+
+
+def _gallery_colors():
+    """Return palette-derived colour tokens for the seed gallery."""
+    palette = QApplication.palette()
+    window = palette.color(QPalette.ColorRole.Window)
+    text = palette.color(QPalette.ColorRole.WindowText)
+    dark = window.lightness() < 128
+
+    accent = "#4CAF50" if dark else "#2E7D32"
+    subtle = "#A0A0A0" if dark else "#616161"
+    warn = "#FFB74D" if dark else "#EF6C00"
+    card_bg = (
+        palette.color(QPalette.ColorRole.Base).name(QColor.NameFormat.HexRgb)
+    )
+    border = (
+        QColor(
+            round(text.red() * 0.24 + window.red() * 0.76),
+            round(text.green() * 0.24 + window.green() * 0.76),
+            round(text.blue() * 0.24 + window.blue() * 0.76),
+        ).name(QColor.NameFormat.HexRgb)
+    )
+    accent_soft_rgb = (
+        "53,77,58" if dark else "241,248,233"
+    )
+    return {
+        "accent": accent,
+        "subtle": subtle,
+        "warn": warn,
+        "card_bg": card_bg,
+        "border": border,
+        "accent_soft_rgb": accent_soft_rgb,
+    }
 
 
 def render_thumbnail(layer, size: QSize = THUMB) -> QPixmap:
     """Render a layer to a pixmap without adding it to the project."""
+    c = _gallery_colors()
+    bg = QColor(c["card_bg"])
     blank = QPixmap(size)
-    blank.fill(QColor("#FAFAFA"))
+    blank.fill(bg)
     if layer is None or layer.featureCount() == 0:
         return blank
 
     extent = QgsRectangle(layer.extent())
     if extent.isEmpty():
         return blank
-    # A little air around the block reads better than an edge-to-edge fill.
     extent.grow(max(extent.width(), extent.height()) * 0.05)
 
     settings = QgsMapSettings()
     settings.setLayers([layer])
-    settings.setBackgroundColor(QColor("#FAFAFA"))
+    settings.setBackgroundColor(bg)
     settings.setOutputSize(size)
     settings.setExtent(extent)
     if layer.crs().isValid():
@@ -84,22 +117,23 @@ class _SeedCard(QFrame):
         thumb.setFixedSize(THUMB)
         layout.addWidget(thumb, alignment=Qt.AlignmentFlag.AlignCenter)
 
+        c = _gallery_colors()
         report = report or {}
         flagged = (report.get("flag_oversize", 0)
                    + report.get("flag_undersize", 0)
                    + report.get("flag_narrow", 0))
         stats = (
-            f"<span style='color:{MUTED};'>Parcels</span> "
+            f"<span style='color:{c['subtle']};'>Parcels</span> "
             f"<b>{report.get('parcels', layer.featureCount() if layer else 0)}</b>"
-            f" &nbsp;·&nbsp; <span style='color:{MUTED};'>Coverage</span> "
+            f" &nbsp;·&nbsp; <span style='color:{c['subtle']};'>Coverage</span> "
             f"<b>{report.get('coverage_pct', 0):.1f}%</b><br>"
-            f"<span style='color:{MUTED};'>Median area</span> "
+            f"<span style='color:{c['subtle']};'>Median area</span> "
             f"<b>{report.get('area_median', 0):,.0f} m²</b>"
-            f" &nbsp;·&nbsp; <span style='color:{MUTED};'>Frontage</span> "
+            f" &nbsp;·&nbsp; <span style='color:{c['subtle']};'>Frontage</span> "
             f"<b>{report.get('frontage_mean', 0):,.1f} m</b>"
         )
         if flagged:
-            stats += (f"<br><span style='color:#EF6C00;'>{flagged} flagged "
+            stats += (f"<br><span style='color:{c['warn']};'>{flagged} flagged "
                       f"parcel(s)</span>")
         info = QLabel(stats)
         info.setTextFormat(Qt.TextFormat.RichText)
@@ -110,8 +144,9 @@ class _SeedCard(QFrame):
 
     def setSelected(self, selected: bool) -> None:  # noqa: N802 - Qt naming
         self._selected = selected
-        border = f"2px solid {ACCENT}" if selected else "1px solid #D0D0D0"
-        background = "#F1F8E9" if selected else "transparent"
+        c = _gallery_colors()
+        border = f"2px solid {c['accent']}" if selected else f"1px solid {c['border']}"
+        background = f"rgba({c['accent_soft_rgb']},0.7)" if selected else "transparent"
         self.setStyleSheet(
             f"QFrame {{ border: {border}; border-radius: 6px; "
             f"background: {background}; }}"
