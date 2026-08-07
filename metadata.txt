@@ -3,15 +3,15 @@ name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Subdivide zoning blocks into parcels with minimum-frontage, depth and corner rules, width variation, row asymmetry, fishbone offset, and automatic residual merging.
-version=0.3.2
+version=0.3.3
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, minimum street frontage, explicit front-row depth and corner-plot widening, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments. Output is complete by construction: parcels that exceed the maximum area are split further, and anything still outside the envelope is kept and flagged rather than deleted, with a coverage report after every run. Results can be previewed before they are added, and four seeded layouts can be compared side by side. Developed at Dokuz Eylul University, Department of City and Regional Planning.
+about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, minimum street frontage, explicit front-row depth and corner-plot widening, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments. Output is complete by construction: parcels that exceed the maximum area are split further, and anything still outside the envelope is kept and flagged rather than deleted, with a coverage report after every run. Results can be previewed before they are added, and four seeded layouts can be compared side by side. Developed at Dokuz Eylul University, Department of City and Regional Planning. Online User Manual & Documentation: https://yusufeminoglu.github.io/parcelflux/ | If you find this plugin helpful, please consider starring the repository on GitHub (https://github.com/YusufEminoglu/parcelflux)!
 
 tracker=https://github.com/YusufEminoglu/parcelflux/issues
 repository=https://github.com/YusufEminoglu/parcelflux
-homepage=https://github.com/YusufEminoglu/parcelflux
+homepage=https://yusufeminoglu.github.io/parcelflux/
 
 category=Vector
 tags=planx,qgis,parcel,subdivision,urban planning,settlement,dock

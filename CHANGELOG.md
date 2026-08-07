@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.3] - 2026-08-07
+
+- Added online user manual link (https://yusufeminoglu.github.io/parcelflux/) and GitHub repository star call-to-action.
+
 ## [0.3.2] - 2026-08-07
 
 - Expanded reference manual: subdivision theory, geometry math, 14 DOI refs
