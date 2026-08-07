@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ParcelFlux — Comprehensive Academic Reference Manual</title>
+<script>
+MathJax = {
+  tex: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']], tags: 'ams' },
+  options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'], ignoreHtmlClass: 'no-math' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+:root {
+  --bg: #ffffff; --fg: #1a1a1a; --muted: #555;
+  --accent: #2E7D32; --accent-dark: #1B5E20; --accent-light: #e8f5e9;
+  --border: #ddd; --code-bg: #f5f7f7;
+  --sidebar-bg: #f0f4f4; --sidebar-fg: #333; --sidebar-active: #e8f5e9;
+  --table-stripe: #f9fbfb;
+  font-size: 11pt; line-height: 1.55;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a2e; --fg: #e0e0e0; --muted: #999;
+    --accent: #4CAF50; --accent-dark: #388E3C; --accent-light: #0d2a0d;
+    --border: #333; --code-bg: #1e2d3d;
+    --sidebar-bg: #16213e; --sidebar-fg: #ccc; --sidebar-active: #0d2a0d;
+    --table-stripe: #1a2a3a;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg); color: var(--fg); display: flex; min-height: 100vh; }
+
+#sidebar { width: 300px; min-width: 300px; height: 100vh; position: sticky; top: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; z-index: 100; }
+#sidebar-header { padding: 16px 18px 8px; border-bottom: 1px solid var(--border); }
+#sidebar-header .logo { font-size: 1.3em; font-weight: 700; color: var(--accent); display: block; }
+#sidebar-header .subtitle { font-size: .78em; color: var(--muted); }
+#search-wrap { padding: 10px 14px; }
+#search { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: .9em; background: var(--bg); color: var(--fg); outline: none; }
+#search:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light); }
+#toc { flex: 1; overflow-y: auto; padding: 4px 0; list-style: none; }
+.toc-group { border-bottom: 1px solid var(--border); }
+.toc-group-btn { display: block; width: 100%; text-align: left; padding: 8px 18px; background: none; border: none; font-size: .88em; font-weight: 600; color: var(--sidebar-fg); cursor: pointer; }
+.toc-group-btn:hover { background: var(--accent-light); }
+.toc-group-btn .arrow { font-size: .7em; transition: transform .2s; display: inline-block; }
+.toc-group-btn[aria-expanded="false"] .arrow { transform: rotate(-90deg); }
+.toc-algs { list-style: none; overflow: hidden; }
+.toc-algs li a { display: block; padding: 4px 18px 4px 28px; font-size: .85em; color: var(--sidebar-fg); text-decoration: none; border-left: 3px solid transparent; }
+.toc-algs li a:hover, .toc-algs li a.active { background: var(--accent-light); border-left-color: var(--accent); color: var(--accent-dark); }
+.toc-algs li a.hidden { display: none; }
+#sidebar-footer { padding: 10px 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+#sidebar-footer a { font-size: .82em; color: var(--muted); text-decoration: none; }
+#sidebar-footer a:hover { color: var(--accent); }
+
+#content { flex: 1; max-width: 52em; padding: 2em 2.5em 6em; overflow-y: auto; }
+h1 { font-size: 2.4em; margin: 0 0 .15em; color: var(--accent); }
+h1.subtitle { font-size: 1.15em; font-weight: 400; color: var(--muted); margin-bottom: 1.5em; }
+h2 { font-size: 1.55em; margin: 2em 0 .5em; padding-bottom: .25em; border-bottom: 2px solid var(--accent); color: var(--accent-dark); }
+h3 { font-size: 1.2em; margin: 1.5em 0 .4em; }
+h4 { font-size: 1.05em; margin: 1.2em 0 .3em; color: var(--muted); }
+p, ul, ol { margin: .6em 0; }
+ul, ol { padding-left: 1.8em; }
+li { margin: .25em 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: .9em; background: var(--code-bg); padding: .1em .3em; border-radius: 3px; }
+pre { background: var(--code-bg); padding: .8em 1em; border-radius: 4px; overflow-x: auto; margin: .8em 0; font-size: .88em; }
+table { width: 100%; border-collapse: collapse; margin: .8em 0; font-size: .95em; }
+th, td { text-align: left; padding: .45em .6em; border: 1px solid var(--border); }
+th { background: var(--accent-light); font-weight: 600; }
+tr:nth-child(even) td { background: var(--table-stripe); }
+.callout { background: var(--accent-light); border-left: 4px solid var(--accent); padding: .6em 1em; margin: .8em 0; border-radius: 0 4px 4px 0; }
+.callout.warn { background: #fff8e6; border-left: 4px solid #e6c300; }
+.callout.info { background: #e0f2fe; border-left: 4px solid #0284c7; }
+.pid { font-size: .85em; color: var(--muted); margin: -.3em 0 .8em; }
+.ref { margin: .35em 0; padding-left: 1.5em; text-indent: -1.5em; font-size: .93em; }
+
+#back-to-top { position: fixed; bottom: 24px; right: 24px; width: 40px; height: 40px; background: var(--accent); color: white; border: none; border-radius: 50%; font-size: 1.3em; cursor: pointer; opacity: 0; transform: translateY(20px); transition: opacity .2s, transform .2s; z-index: 200; }
+#back-to-top.visible { opacity: .85; transform: translateY(0); }
+#back-to-top:hover { opacity: 1; }
+@media (max-width: 768px) { body { flex-direction: column; } #sidebar { width: 100%; min-width: 0; height: auto; position: static; max-height: 40vh; } #content { padding: 1em 1em 4em; } }
+@media print { body { display: block; } #sidebar, #back-to-top { display: none !important; } #content { max-width: none; padding: 0; } h2 { page-break-before: always; } }
+</style>
+</head>
+<body>
+<nav id="sidebar">
+<div id="sidebar-header">
+<span class="logo">ParcelFlux</span>
+<span class="subtitle">Academic Reference Manual · v0.3.1</span>
+</div>
+<div id="search-wrap"><input type="text" id="search" placeholder="Search…" autocomplete="off"></div>
+<ul id="toc">
+<li class="toc-group">
+<button class="toc-group-btn" aria-expanded="true" style="border-left:4px solid #2E7D32; background: linear-gradient(90deg, #2E7D3218 0%, transparent 100%)"><span class="arrow">▼</span> 1. Architecture &amp; Workflow</button>
+<ul class="toc-algs">
+<li><a href="#architecture" data-name="architecture" data-display="plugin architecture and design philosophy">Plugin Architecture &amp; Design Philosophy</a></li>
+<li><a href="#dock-workflow" data-name="dockworkflow" data-display="dock panel and run workflow">Dock Panel &amp; Run Workflow</a></li>
+</ul></li>
+<li class="toc-group">
+<button class="toc-group-btn" aria-expanded="true" style="border-left:4px solid #e53935; background: linear-gradient(90deg, #e5393518 0%, transparent 100%)"><span class="arrow">▼</span> 2. The Subdivision Algorithm</button>
+<ul class="toc-algs">
+<li><a href="#algorithm-overview" data-name="algorithmoverview" data-display="seven step algorithm overview">Seven-Step Algorithm Overview</a></li>
+<li><a href="#step1-classify" data-name="step1classify" data-display="step 1 block classification regular irregular">Step 1: Block Classification (Regular vs Irregular)</a></li>
+<li><a href="#step2-orient" data-name="step2orient" data-display="step 2 orientation and division direction">Step 2: Orientation &amp; Division Direction</a></li>
+<li><a href="#step3-rowdetect" data-name="step3rowdetect" data-display="step 3 single vs double row detection">Step 3: Single vs Double-Row Detection</a></li>
+<li><a href="#step4-divlines" data-name="step4divlines" data-display="step 4 division line generation">Step 4: Division Line Generation</a></li>
+<li><a href="#step5-split" data-name="step5split" data-display="step 5 split and clip">Step 5: Split &amp; Clip to Block Boundary</a></li>
+<li><a href="#step6-merge" data-name="step6merge" data-display="step 6 three pass residual merging">Step 6: Three-Pass Residual Merging</a></li>
+<li><a href="#step7-filter" data-name="step7filter" data-display="step 7 filter and flag">Step 7: Filter, Flag &amp; Output</a></li>
+</ul></li>
+<li class="toc-group">
+<button class="toc-group-btn" aria-expanded="true" style="border-left:4px solid #fb8c00; background: linear-gradient(90deg, #fb8c0018 0%, transparent 100%)"><span class="arrow">▼</span> 3. Parameters</button>
+<ul class="toc-algs">
+<li><a href="#params-core" data-name="paramscore" data-display="core subdivision parameters">Core Subdivision Parameters</a></li>
+<li><a href="#params-variation" data-name="paramsvariation" data-display="width variation fishbone asymmetry hline">Width Variation, Fishbone &amp; Asymmetry</a></li>
+<li><a href="#params-constraints" data-name="paramsconstraints" data-display="planning constraints frontage depth corners">Planning Constraints: Frontage, Depth &amp; Corners</a></li>
+<li><a href="#params-output" data-name="paramsoutput" data-display="output and behaviour parameters">Output &amp; Behaviour Parameters</a></li>
+</ul></li>
+<li class="toc-group">
+<button class="toc-group-btn" aria-expanded="true" style="border-left:4px solid #1e88e5; background: linear-gradient(90deg, #1e88e518 0%, transparent 100%)"><span class="arrow">▼</span> 4. Input &amp; Output</button>
+<ul class="toc-algs">
+<li><a href="#input-data" data-name="inputdata" data-display="input block layer requirements">Input: Block Layer Requirements</a></li>
+<li><a href="#output-fields" data-name="outputfields" data-display="output parcel fields">Output: Parcel Attribute Fields</a></li>
+<li><a href="#facade-metrics" data-name="facademetrics" data-display="computed facade metrics">Computed Facade Metrics</a></li>
+<li><a href="#quality-report" data-name="qualityreport" data-display="quality report statistics">Quality Report Statistics</a></li>
+</ul></li>
+<li class="toc-group">
+<button class="toc-group-btn" aria-expanded="true" style="border-left:4px solid #8e24aa; background: linear-gradient(90deg, #8e24aa18 0%, transparent 100%)"><span class="arrow">▼</span> 5. Preview &amp; Seed Gallery</button>
+<ul class="toc-algs">
+<li><a href="#preview" data-name="preview" data-display="preview apply discard workflow">Preview, Apply &amp; Discard Workflow</a></li>
+<li><a href="#seed-gallery" data-name="seedgallery" data-display="seed gallery four way comparison">Seed Gallery: Four-Way Layout Comparison</a></li>
+</ul></li>
+<li class="toc-group">
+<button class="toc-group-btn" aria-expanded="true" style="border-left:4px solid #00897b; background: linear-gradient(90deg, #00897b18 0%, transparent 100%)"><span class="arrow">▼</span> 6. Advanced Topics</button>
+<ul class="toc-algs">
+<li><a href="#field-collision" data-name="fieldcollision" data-display="field name collision safety planx prefix">Field-Name Collision Safety</a></li>
+<li><a href="#cancellation" data-name="cancellation" data-display="cancellation safe background worker">Cancellation-Safe Background Worker</a></li>
+<li><a href="#irregular-blocks" data-name="irregularblocks" data-display="handling irregular and invalid blocks">Handling Irregular &amp; Invalid Blocks</a></li>
+</ul></li>
+</ul>
+<div id="sidebar-footer">
+<a href="#appendix-a">📊 Appendix A: Parameter Quick Reference</a>
+<a href="#appendix-b">📖 Appendix B: Glossary</a>
+<a href="#appendix-c">📚 Appendix C: Bibliography</a>
+</div>
+</nav>
+
+<main id="content">
+
+<h1>ParcelFlux</h1>
+<h1 class="subtitle">Comprehensive Academic Reference Manual · v0.3.1</h1>
+<p style="color:var(--muted);font-size:.9em;">Yusuf Eminoğlu · August 2026 · <a href="https://github.com/YusufEminoglu/parcelflux">github.com/YusufEminoglu/parcelflux</a></p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- 1. ARCHITECTURE -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="architecture">1. Architecture &amp; Workflow</h2>
+
+<h3>Plugin Architecture &amp; Design Philosophy</h3>
+<p>ParcelFlux is a <b>dock-style QGIS plugin</b> that subdivides zoning blocks into parcels with natural variation. Unlike Processing-toolbox plugins that run once and produce a fixed output, ParcelFlux is interactive: you adjust parameters, preview the result as a dashed temporary layer, and either <b>Apply</b> (commit to the project) or <b>Discard</b> (adjust and retry).</p>
+<p>The architecture has three layers:</p>
+<ol>
+  <li><b>Dock Panel</b> (<code>dialogs/dock.py</code>) — Tabbed QGIS dock widget (Run / Guide / About) with all parameter controls, a Run button, a progress bar, a quality-report card, and Apply/Discard buttons.</li>
+  <li><b>Subdivision Engine</b> (<code>algorithms/parcel_flux_core.py</code>) — A standalone <code>ParcelFluxCore</code> class that takes a block layer and 13 parameters, runs the seven-step subdivision algorithm on a background thread, and returns a result layer plus a quality-report dictionary. Zero ProcessingProvider dependency — the engine is callable from headless scripts, tests, or other plugins.</li>
+  <li><b>Seed Gallery</b> (<code>dialogs/seed_gallery.py</code>) — Runs four seeds simultaneously on background threads, renders each result as a thumbnail, and shows per-seed quality summaries for side-by-side comparison.</li>
+</ol>
+<p>The subdivision engine delegates geometry operations — oriented bounding boxes, line extension, polygon splitting — to QGIS native algorithms via <code>processing.run()</code>, ensuring correctness across QGIS versions without reimplementing computational geometry.</p>
+
+<h3 id="dock-workflow">Dock Panel &amp; Run Workflow</h3>
+<p>The dock panel organises the workflow into a single scrollable Run tab with grouped controls:</p>
+<table><tr><th>Group</th><th>Controls</th></tr>
+<tr><td><b>Input</b></td><td>Block layer selector (<code>QgsMapLayerComboBox</code>, filtered to polygon layers), "Selected features only" checkbox, output layer name field.</td></tr>
+<tr><td><b>Core Subdivision</b></td><td>Target lot width, minimum/maximum area, merge threshold.</td></tr>
+<tr><td><b>Natural Variation</b></td><td>Width variation (±%), fishbone offset (m), row width asymmetry (%), H-line offset (%).</td></tr>
+<tr><td><b>Planning Constraints</b></td><td>Minimum street frontage (m), parcel depth (m), corner widening (%), uniform corners.</td></tr>
+<tr><td><b>Output Options</b></td><td>Add ID fields, add facade metrics fields, seed value.</td></tr>
+</table>
+<p>The <b>Run</b> button dispatches the subdivision to a <code>QThread</code> worker. A progress bar tracks completion. On finish, the result appears as a dashed-border temporary layer with a <b>Result</b> card showing the quality report. <b>Apply</b> solidifies the layer and adds it to the project; <b>Discard</b> removes it. The <b>Compare Seeds</b> button opens the seed gallery.</p>
+<div class="callout info"><b>Reset defaults.</b> A Reset button restores all 18 parameters to their factory values. This is useful after extensive experimentation — one click returns to a known-good starting point.</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- 2. ALGORITHM -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="algorithm-overview">2. The Subdivision Algorithm</h2>
+
+<h3>Seven-Step Algorithm Overview</h3>
+<p>The engine processes each input block polygon through seven sequential stages. Every stage operates on the <b>actual block geometry</b> — the oriented bounding box (OBB) is used only as a layout guide for division-line orientation and spacing, never as a clipping boundary.</p>
+<ol>
+  <li><b>Classify</b> — Is the block regular (4-vertex, near-rectangular) or irregular (5+ vertices, L-shaped, etc.)?</li>
+  <li><b>Orient</b> — Find the two shortest edges → block ends. Division direction is perpendicular to these.</li>
+  <li><b>Row detect</b> — Is the block narrow enough for one parcel row, or wide enough for two opposing rows?</li>
+  <li><b>Generate division lines</b> — Perpendicular lines at lot_width spacing, with optional variation, fishbone offset, asymmetry, and H-line shift.</li>
+  <li><b>Split &amp; clip</b> — Extend lines beyond the block, clip to block boundary, split the polygon.</li>
+  <li><b>Merge residuals</b> — Three-pass merging: slivers (area &lt; 5 m²), undersized parcels, and under-fronted parcels merge into the neighbour with the longest shared edge.</li>
+  <li><b>Filter &amp; flag</b> — Parcels exceeding max_area are bisected (up to 5 recursive levels). Anything still outside the envelope is kept and flagged in <code>pf_flag</code>. The quality report is computed.</li>
+</ol>
+
+<h3 id="step1-classify">Step 1: Block Classification</h3>
+<p>Blocks with exactly 4 vertices (after geometry repair via <code>makeValid()</code>) are classified as <b>regular</b>. Their OBB is used for orientation and division-line generation, and the actual block boundary is used for clipping. Blocks with 5+ vertices are classified as <b>irregular</b> — their OBB is still used as a layout guide, but all clipping and splitting respects the real (possibly L-shaped, non-convex) footprint.</p>
+
+<h3 id="step2-orient">Step 2: Orientation &amp; Division Direction</h3>
+<p>The algorithm identifies the two shortest edges of the OBB as the <b>block ends</b> (the street-facing sides). The division direction is perpendicular to the short-edge direction — i.e., division lines run parallel to the long edges, cutting the block into parcels that each have frontage on the short edge (street).</p>
+
+<h3 id="step3-rowdetect">Step 3: Single vs Double-Row Detection</h3>
+$$\text{row\_mode} = \begin{cases} \text{single} & \text{if } w_{\text{short}} < 1.8 \times w_{\text{lot}} \\ \text{double} & \text{otherwise} \end{cases} \tag{1}$$
+<p>where \(w_{\text{short}}\) is the length of the block's short edge and \(w_{\text{lot}}\) is the target lot width. In double-row mode, a centreline is drawn along the block's long axis, and each side of the block is subdivided independently. In single-row mode, division lines span the full block width. The 1.8× threshold ensures that double-row parcels have roughly the target lot width on each side — narrower blocks would produce parcels too shallow to be useful.</p>
+
+<h3 id="step4-divlines">Step 4: Division Line Generation</h3>
+<p>Perpendicular division lines are generated at intervals of <code>lot_width</code> along the block's long axis. Four optional modifiers introduce natural variation:</p>
+<table><tr><th>Modifier</th><th>Parameter</th><th>Effect</th></tr>
+<tr><td><b>Width variation</b></td><td><code>width_variation</code> (±%)</td><td>Each division interval = lot_width × (1 + random(−v, +v)). Produces non-uniform parcel widths for a natural streetscape.</td></tr>
+<tr><td><b>Fishbone offset</b></td><td><code>fishbone_offset</code> (m)</td><td>Zigzag displacement at division-line endpoints perpendicular to the division direction. Mimics the organic boundary offsets of traditional settlement morphology.</td></tr>
+<tr><td><b>Row width asymmetry</b></td><td><code>row_width_asymmetry</code> (%)</td><td>Different lot widths on opposite sides of the centreline: side A = lot_width × (1 + a), side B = lot_width × (1 − a). Produces differentiated front/rear facades.</td></tr>
+<tr><td><b>H-line offset</b></td><td><code>hline_offset</code> (%)</td><td>Shifts the centreline away from the geometric midpoint by this fraction of the half-width. Creates asymmetric front/rear depths when one side should have deeper parcels.</td></tr></table>
+
+<h3 id="step5-split">Step 5: Split &amp; Clip to Block Boundary</h3>
+<p>Division lines are extended slightly beyond the block bounding box, then clipped to the actual block polygon using QGIS's native <code>splitWithLines</code> algorithm. The resulting fragments are the raw parcels. Oversized parcels (area &gt; <code>max_area</code>) are recursively bisected along their long axis, up to <code>_MAX_RESPLIT_DEPTH</code> = 5 levels (turning one parcel into at most 32).</p>
+
+<h3 id="step6-merge">Step 6: Three-Pass Residual Merging</h3>
+<p>Residual fragments are eliminated in three sequential passes, each targeting a different failure mode:</p>
+<table><tr><th>Pass</th><th>Target</th><th>Criterion</th><th>Merge Into</th></tr>
+<tr><td><b>1. Sliver merge</b></td><td>Dust fragments</td><td>Area &lt; 5.0 m²</td><td>Neighbour with longest shared edge</td></tr>
+<tr><td><b>2. Undersize merge</b></td><td>Below-minimum parcels</td><td>Area &lt; <code>min_area</code> OR area &lt; <code>merge_threshold</code></td><td>Neighbour with longest shared edge</td></tr>
+<tr><td><b>3. Frontage merge</b></td><td>Under-fronted parcels</td><td>Street frontage &lt; <code>min_frontage</code></td><td>Neighbour with longest shared edge</td></tr>
+</table>
+<p>Each pass iterates until no more fragments meet the criterion. The "longest shared edge" rule ensures fragments merge into the geometrically most natural neighbour — the one they share the most boundary with — rather than an arbitrary adjacent polygon.</p>
+<div class="callout info"><b>Guaranteed coverage.</b> After all three passes, any fragment that still exists (area &gt; <code>max_area</code> after 5 re-split levels, or area below thresholds with no merge-eligible neighbour) is <b>kept and flagged</b> rather than deleted. The output always covers 100% of the input block area minus only what is explicitly flagged. This is the "complete by construction" guarantee: no parcel is ever silently discarded.</div>
+
+<h3 id="step7-filter">Step 7: Filter, Flag &amp; Output</h3>
+<p>The final step assigns each parcel a <code>pf_flag</code> value: empty string (OK), <code>oversize</code> (area &gt; max_area after max re-splits), <code>undersize</code> (area &lt; merge_threshold but no merge-eligible neighbour), or <code>narrow</code> (frontage &lt; min_frontage but no merge-eligible neighbour). The quality-report dictionary is computed from the final parcel set and returned alongside the output layer.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- 3. PARAMETERS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="params-core">3. Parameters</h2>
+
+<h3>Core Subdivision Parameters</h3>
+<table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Range</th><th>Description</th></tr>
+<tr><td><code>lot_width</code></td><td>Double</td><td>16.0</td><td>8–50 m</td><td>Target parcel width along the street frontage. The primary control on parcel count.</td></tr>
+<tr><td><code>min_area</code></td><td>Double</td><td>300.0</td><td>50–2000 m²</td><td>Minimum acceptable parcel area. Parcels below this trigger the undersize merge pass.</td></tr>
+<tr><td><code>max_area</code></td><td>Double</td><td>2000.0</td><td>200–10000 m²</td><td>Maximum acceptable parcel area. Parcels above this are recursively bisected. Must be &gt; min_area.</td></tr>
+<tr><td><code>merge_threshold</code></td><td>Double</td><td>35.0</td><td>10–500 m²</td><td>Area below which a parcel is a candidate for merging in pass 2. Typically set to 10–20% of the target parcel area.</td></tr>
+</table>
+
+<h3 id="params-variation">Width Variation, Fishbone &amp; Asymmetry</h3>
+<table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Range</th><th>Description</th></tr>
+<tr><td><code>width_variation</code></td><td>Double</td><td>0.0</td><td>0–50%</td><td>Random ± variation in each parcel's width. 0 = uniform widths. 20% = widths vary between 0.8× and 1.2× lot_width. Uses the <code>seed</code> for reproducibility.</td></tr>
+<tr><td><code>fishbone_offset</code></td><td>Double</td><td>0.0</td><td>0–10 m</td><td>Random perpendicular displacement at each division line endpoint. 0 = straight lines. Higher values produce the fishbone/zigzag pattern characteristic of organic settlement fabrics.</td></tr>
+<tr><td><code>row_width_asymmetry</code></td><td>Double</td><td>0.0</td><td>0–50%</td><td>Percentage difference in lot width between the two sides of the centreline. 0 = symmetric. 25% = side A gets 1.25×, side B gets 0.75× of lot_width.</td></tr>
+<tr><td><code>hline_offset</code></td><td>Double</td><td>0.0</td><td>0–50%</td><td>Shift of the centreline away from the geometric midpoint, as a fraction of half-width. 0 = centre. 25% = centreline moved 25% toward one side, creating deeper parcels on that side.</td></tr>
+</table>
+
+<h3 id="params-constraints">Planning Constraints: Frontage, Depth &amp; Corners</h3>
+<table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Range</th><th>Description</th></tr>
+<tr><td><code>min_frontage</code></td><td>Double</td><td>0.0</td><td>0–50 m</td><td>Minimum street frontage per parcel. 0 = no constraint. Parcels below this trigger the frontage merge pass (pass 3).</td></tr>
+<tr><td><code>parcel_depth</code></td><td>Double</td><td>0.0</td><td>0–200 m</td><td>Explicit front-row parcel depth. 0 = depth determined by the block geometry. When set, front-row parcels are clipped to this depth from the street edge before the split step, creating a consistent building-line depth.</td></tr>
+<tr><td><code>corner_widening</code></td><td>Double</td><td>0.0</td><td>0–100%</td><td>Extra width multiplier for corner parcels (the first and last parcel on each block face). 50% = corner parcels are 1.5× wider than interior parcels.</td></tr>
+<tr><td><code>uniform_corners</code></td><td>Boolean</td><td>True</td><td>When true, all four corner parcels of a double-row block get the same widened width. When false, only the two street-facing corners are widened.</td></tr>
+</table>
+
+<h3 id="params-output">Output &amp; Behaviour Parameters</h3>
+<table><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>seed</code></td><td>Integer</td><td>42</td><td>Random seed for the deterministic LCG. Same seed + same inputs = identical widths, fishbone offsets, and asymmetry placements.</td></tr>
+<tr><td><code>add_id_fields</code></td><td>Boolean</td><td>True</td><td>Add <code>pf_id</code> (sequential parcel ID) and <code>pf_block_id</code> (source block ID) to output parcels.</td></tr>
+<tr><td><code>add_facade_fields</code></td><td>Boolean</td><td>True</td><td>Add computed facade metrics: exterior frontage, side frontage, rear-edge proxy, corner flag, and cardinal front direction.</td></tr>
+<tr><td><code>selected_only</code></td><td>Boolean</td><td>False</td><td>Subdivide only the currently selected features in the block layer.</td></tr>
+<tr><td><code>output_name</code></td><td>String</td><td>"ParcelFlux Parcels"</td><td>Name for the output temporary layer.</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- 4. INPUT & OUTPUT -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="input-data">4. Input &amp; Output</h2>
+
+<h3>Input: Block Layer Requirements</h3>
+<table><tr><th>Property</th><th>Requirement</th></tr>
+<tr><td><b>Geometry type</b></td><td>Polygon or MultiPolygon</td></tr>
+<tr><td><b>CRS</b></td><td>Projected (metric). All area, width, and depth parameters are in the layer's map units — for a geographic CRS these would be decimal degrees, producing meaningless results.</td></tr>
+<tr><td><b>Geometry validity</b></td><td>Invalid geometries are repaired via <code>makeValid()</code> before processing. The engine tolerates messy cadastral data.</td></tr>
+<tr><td><b>Attributes</b></td><td>No required fields. The block's <code>fid</code> is used as <code>pf_block_id</code> when ID fields are enabled. Existing attribute fields are preserved in the output parcels.</td></tr>
+</table>
+
+<h3 id="output-fields">Output: Parcel Attribute Fields</h3>
+<p>Output parcels inherit all attribute columns from the input block layer. Additional fields are added depending on the output options:</p>
+<table><tr><th>Field</th><th>Type</th><th>Condition</th><th>Description</th></tr>
+<tr><td><code>pf_id</code></td><td>Integer</td><td><code>add_id_fields</code> = True</td><td>Sequential 1-based parcel identifier, unique within the run.</td></tr>
+<tr><td><code>pf_block_id</code></td><td>Integer</td><td><code>add_id_fields</code> = True</td><td>Source block feature ID. Links each parcel back to its parent block.</td></tr>
+<tr><td><code>pf_flag</code></td><td>String</td><td>Always</td><td>Empty = OK; <code>oversize</code> = exceeds max_area after max re-splits; <code>undersize</code> = below merge_threshold, unmergeable; <code>narrow</code> = below min_frontage, unmergeable.</td></tr>
+<tr><td><code>pf_area</code></td><td>Double</td><td>Always</td><td>Parcel area in map units² (typically m²).</td></tr>
+<tr><td><code>pf_frontage</code></td><td>Double</td><td>Always</td><td>Computed street frontage length in map units (m).</td></tr>
+</table>
+
+<h3 id="facade-metrics">Computed Facade Metrics</h3>
+<p>When <code>add_facade_fields</code> = True, the engine computes five additional geometric properties per parcel:</p>
+<table><tr><th>Field</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>pf_facade_ext</code></td><td>Double</td><td>Exterior frontage — the length of the parcel edge facing the street (the block's short edge).</td></tr>
+<tr><td><code>pf_facade_side</code></td><td>Double</td><td>Side frontage — the length of the parcel edge perpendicular to the street (the shared side boundary with the adjacent parcel).</td></tr>
+<tr><td><code>pf_facade_rear</code></td><td>Double</td><td>Rear-edge proxy — the length of the parcel edge opposite the street, or the centreline edge for double-row blocks.</td></tr>
+<tr><td><code>pf_corner</code></td><td>Boolean</td><td>True if the parcel occupies a corner position (first or last on the block face).</td></tr>
+<tr><td><code>pf_cardinal</code></td><td>String</td><td>Cardinal direction of the front facade: N, NE, E, SE, S, SW, W, NW. Computed from the exterior-frontage edge orientation.</td></tr>
+</table>
+
+<h3 id="quality-report">Quality Report Statistics</h3>
+<p>After every run, the engine returns a quality-report dictionary with these keys:</p>
+<table><tr><th>Key</th><th>Type</th><th>Description</th></tr>
+<tr><td><code>blocks_in</code></td><td>Integer</td><td>Number of input blocks processed.</td></tr>
+<tr><td><code>blocks_skipped</code></td><td>Integer</td><td>Blocks skipped (e.g. non-polygon geometry, zero area after repair).</td></tr>
+<tr><td><code>parcels</code></td><td>Integer</td><td>Total parcels produced.</td></tr>
+<tr><td><code>input_area</code></td><td>Double</td><td>Sum of input block areas (m²).</td></tr>
+<tr><td><code>output_area</code></td><td>Double</td><td>Sum of output parcel areas (m²).</td></tr>
+<tr><td><code>coverage_pct</code></td><td>Double</td><td>100 × output_area / input_area. Should always read 100% — anything less indicates flagged parcels were excluded.</td></tr>
+<tr><td><code>area_min</code> / <code>area_mean</code> / <code>area_median</code> / <code>area_max</code></td><td>Double</td><td>Area distribution statistics (m²).</td></tr>
+<tr><td><code>frontage_mean</code></td><td>Double</td><td>Mean street frontage across all parcels (m).</td></tr>
+<tr><td><code>merged</code></td><td>Integer</td><td>Number of fragments eliminated by the three-pass merge.</td></tr>
+<tr><td><code>resplit</code></td><td>Integer</td><td>Number of times an oversized parcel was bisected.</td></tr>
+<tr><td><code>flag_oversize</code> / <code>flag_undersize</code> / <code>flag_narrow</code></td><td>Integer</td><td>Counts of parcels flagged in each category.</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- 5. PREVIEW & SEED GALLERY -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="preview">5. Preview &amp; Seed Gallery</h2>
+
+<h3>Preview, Apply &amp; Discard Workflow</h3>
+<p>After a run completes, the output layer is added to the QGIS project as a <b>temporary memory layer</b> with a dashed-border style — visually distinct from committed layers. A <b>Result</b> card in the dock panel shows the quality-report summary (coverage %, parcel count, area range, merge/resplit counts). The user can:</p>
+<ul>
+  <li><b>Apply</b> — Removes the dashed style, renames the layer to the configured output name, and the layer becomes a permanent project member. The Result card clears.</li>
+  <li><b>Discard</b> — Removes the temporary layer. The user can adjust parameters and re-run.</li>
+</ul>
+<p>This preview loop encourages iterative design: adjust <code>lot_width</code> → run → inspect frontage distribution → adjust <code>min_frontage</code> → re-run → apply when satisfied.</p>
+
+<h3 id="seed-gallery">Seed Gallery: Four-Way Layout Comparison</h3>
+<p>Because random variation (width, fishbone) makes one parameter set produce many plausible layouts, the <b>Compare Seeds</b> button runs the same parameters with four different seeds (42, 123, 789, 2048) simultaneously on background threads. Each result is rendered as a 260×200 px thumbnail using QGIS's map renderer and displayed in a 2×2 grid dialog with its quality summary (parcel count, coverage %, area range, merges).</p>
+<p>The operator picks the preferred layout by clicking its thumbnail, then <b>Apply Selected</b> — that result becomes the temporary preview layer, ready for Apply/Discard. This turns a stochastic process into a visual choice: "I like seed 789's corner-parcel proportions better."</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- 6. ADVANCED TOPICS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="field-collision">6. Advanced Topics</h2>
+
+<h3>Field-Name Collision Safety</h3>
+<p>If the input block layer already has fields named <code>pf_id</code>, <code>pf_area</code>, etc. (from a previous ParcelFlux run on a derived layer), the engine detects the collision and prepends <code>planx_</code> to the generated field names instead (e.g. <code>planx_pf_id</code>, <code>planx_pf_area</code>). This prevents the engine from overwriting existing attribute data and allows chaining multiple subdivision runs on the same layer.</p>
+
+<h3 id="cancellation">Cancellation-Safe Background Worker</h3>
+<p>The subdivision runs on a <code>QThread</code> worker. A <b>Cancel</b> button in the dock panel sets a cancellation flag that the engine checks between blocks. The worker thread is detached on plugin unload — the engine uses cooperative cancellation via <code>_CancelAwareFeedback</code>, a QGIS Processing feedback subclass that mirrors the worker's cancellation state to QGIS native algorithm calls. This means cancelling mid-run stops both the ParcelFlux engine and any in-flight QGIS processing operation (e.g. <code>splitWithLines</code>).</p>
+
+<h3 id="irregular-blocks">Handling Irregular &amp; Invalid Blocks</h3>
+<p>Real-world cadastral data frequently contains invalid geometries (self-intersections, ring-ordering errors) and irregular shapes (L-shaped blocks, blocks with curved boundaries). The engine handles these defensively:</p>
+<ul>
+  <li><b>Invalid geometries</b> are repaired via <code>makeValid()</code> before any processing step.</li>
+  <li><b>Irregular polygons</b> (5+ vertices) have their OBB computed for orientation and division-line generation, but all splitting and clipping uses the actual repaired polygon — the OBB is strictly a layout guide.</li>
+  <li><b>Zero-area or non-polygon features</b> are skipped and counted in <code>blocks_skipped</code>.</li>
+  <li><b>The Processing context</b> is configured with <code>GeometrySkipInvalid</code> so that QGIS native algorithms tolerate the remaining edge cases rather than aborting the entire run.</li>
+</ul>
+<div class="callout warn"><b>Performance note.</b> Each block triggers multiple QGIS native algorithm calls (OBB, extendLines, splitWithLines). For a study area with hundreds of blocks, run time scales approximately linearly with block count. Typical throughput on a modern machine: ~50–100 blocks per second. The <b>Selected only</b> checkbox lets you prototype on a subset before committing to a full run.</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- APPENDICES -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<h2 id="appendix-a">Appendix A: Parameter Quick Reference</h2>
+<table><tr><th>Parameter</th><th>Default</th><th>Min</th><th>Max</th><th>Step</th></tr>
+<tr><td><code>lot_width</code></td><td>16.0 m</td><td>8</td><td>50</td><td>0.5</td></tr>
+<tr><td><code>min_area</code></td><td>300.0 m²</td><td>50</td><td>2000</td><td>10</td></tr>
+<tr><td><code>max_area</code></td><td>2000.0 m²</td><td>200</td><td>10000</td><td>50</td></tr>
+<tr><td><code>merge_threshold</code></td><td>35.0 m²</td><td>10</td><td>500</td><td>5</td></tr>
+<tr><td><code>width_variation</code></td><td>0%</td><td>0</td><td>50</td><td>1</td></tr>
+<tr><td><code>fishbone_offset</code></td><td>0.0 m</td><td>0</td><td>10</td><td>0.1</td></tr>
+<tr><td><code>row_width_asymmetry</code></td><td>0%</td><td>0</td><td>50</td><td>1</td></tr>
+<tr><td><code>hline_offset</code></td><td>0%</td><td>0</td><td>50</td><td>1</td></tr>
+<tr><td><code>min_frontage</code></td><td>0.0 m</td><td>0</td><td>50</td><td>0.5</td></tr>
+<tr><td><code>parcel_depth</code></td><td>0.0 m</td><td>0</td><td>200</td><td>1</td></tr>
+<tr><td><code>corner_widening</code></td><td>0%</td><td>0</td><td>100</td><td>5</td></tr>
+<tr><td><code>seed</code></td><td>42</td><td>0</td><td>2³¹−1</td><td>1</td></tr>
+</table>
+
+<h2 id="appendix-b">Appendix B: Glossary</h2>
+<table><tr><th>Term</th><th>Definition</th></tr>
+<tr><td><b>Block (zoning block)</b></td><td>A polygon representing a city block or development parcel bounded by streets. The input unit of subdivision.</td></tr>
+<tr><td><b>Centreline (H-line)</b></td><td>The line dividing a double-row block into two opposing rows of parcels. Runs along the block's long axis.</td></tr>
+<tr><td><b>Corner parcel</b></td><td>The first or last parcel on a block face, adjacent to the street intersection. Optionally widened via <code>corner_widening</code>.</td></tr>
+<tr><td><b>Division line</b></td><td>A perpendicular line drawn across the block at each lot-width interval. These lines become the shared boundaries between adjacent parcels.</td></tr>
+<tr><td><b>Double-row</b></td><td>A block wide enough to accommodate two opposing rows of parcels, back-to-back, separated by a centreline.</td></tr>
+<tr><td><b>Fishbone offset</b></td><td>A random perpendicular displacement at division-line endpoints, producing a zigzag boundary pattern reminiscent of organic settlement fabrics.</td></tr>
+<tr><td><b>H-line offset</b></td><td>Displacement of the centreline away from the geometric midpoint, creating asymmetric front/rear parcel depths.</td></tr>
+<tr><td><b>LCG (Linear Congruential Generator)</b></td><td>A deterministic pseudo-random number generator. ParcelFlux uses a 64-bit LCG (Knuth MMIX constants) with a user-supplied seed for reproducible variation.</td></tr>
+<tr><td><b>OBB (Oriented Bounding Box)</b></td><td>The minimum-area rectangle enclosing a polygon, rotated to align with the polygon's principal axes. Used as a layout guide, never as a clipping boundary.</td></tr>
+<tr><td><b>Residual merging</b></td><td>The process of eliminating fragments (slivers, undersized parcels, under-fronted parcels) by merging them into the neighbour with the longest shared edge.</td></tr>
+<tr><td><b>Row width asymmetry</b></td><td>Different lot widths on the two sides of a double-row block's centreline, producing differentiated front/rear facades.</td></tr>
+<tr><td><b>Single-row</b></td><td>A narrow block subdivided into a single row of parcels spanning the full block width.</td></tr>
+<tr><td><b>Sliver</b></td><td>A fragment with area &lt; 5.0 m² — effectively unusable. Eliminated in the first merge pass.</td></tr>
+<tr><td><b>Width variation</b></td><td>Random ± percentage modulation of each parcel's lot width, producing non-uniform streetscapes.</td></tr>
+</table>
+
+<h2 id="appendix-c">Appendix C: Bibliography</h2>
+<p class="ref">Church, R.L. &amp; ReVelle, C.S. (1974). "The maximal covering location problem." <i>Papers of the Regional Science Association</i>, 32, 101–118.</p>
+<p class="ref">Knuth, D.E. (1997). <i>The Art of Computer Programming, Volume 2: Seminumerical Algorithms.</i> 3rd ed., Addison-Wesley, Reading, MA. (MMIX LCG constants, §3.2.1.)</p>
+<p class="ref">Müller, P., Wonka, P., Haegler, S., Ulmer, A. &amp; Van Gool, L. (2006). "Procedural modeling of buildings." <i>ACM Transactions on Graphics (SIGGRAPH)</i>, 25(3), 614–623. DOI: <a href="https://doi.org/10.1145/1141911.1141931">10.1145/1141911.1141931</a></p>
+<p class="ref">Parish, Y.I.H. &amp; Müller, P. (2001). "Procedural modeling of cities." <i>Proceedings of the 28th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH)</i>, 301–308. DOI: <a href="https://doi.org/10.1145/383259.383292">10.1145/383259.383292</a></p>
+<p class="ref">Vanegas, C.A., Aliaga, D.G., Wonka, P., Müller, P., Waddell, P. &amp; Watson, B. (2010). "Modelling the appearance and behaviour of urban spaces." <i>Computer Graphics Forum</i>, 29(1), 25–42. DOI: <a href="https://doi.org/10.1111/j.1467-8659.2009.01535.x">10.1111/j.1467-8659.2009.01535.x</a></p>
+<p class="ref">Wickramasuriya, R., Chisholm, L.A., Puotinen, M., Gill, N. &amp; Klepeis, P. (2011). "An automated land subdivision tool for urban and regional planning." <i>Computers, Environment and Urban Systems</i>, 35(3), 156–171. DOI: <a href="https://doi.org/10.1016/j.compenvurbsys.2010.12.002">10.1016/j.compenvurbsys.2010.12.002</a></p>
+
+<hr style="margin:2rem 0;border-color:var(--border);">
+<p style="text-align:center;color:var(--muted);font-size:.85em;">
+ParcelFlux — Academic Reference Manual · v0.3.1<br>
+Yusuf Eminoğlu · August 2026 · <a href="https://github.com/YusufEminoglu/parcelflux">GitHub</a>
+</p>
+
+</main>
+
+<button id="back-to-top" title="Back to top">↑</button>
+<script>
+document.querySelectorAll('.toc-group-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', !expanded);
+  });
+});
+const searchInput = document.getElementById('search');
+searchInput.addEventListener('input', () => {
+  const query = searchInput.value.toLowerCase().trim();
+  document.querySelectorAll('.toc-algs li a').forEach(link => {
+    const name = (link.dataset.name || '').toLowerCase();
+    const display = (link.dataset.display || '').toLowerCase();
+    link.classList.toggle('hidden', !!(query && !name.includes(query) && !display.includes(query)));
+  });
+  document.querySelectorAll('.toc-group').forEach(group => {
+    const visible = group.querySelectorAll('.toc-algs li a:not(.hidden)');
+    if (query && visible.length > 0) group.querySelector('.toc-group-btn').setAttribute('aria-expanded', 'true');
+  });
+});
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); searchInput.focus(); }
+});
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      document.querySelectorAll('#toc a').forEach(a => a.classList.remove('active'));
+      const link = document.querySelector(`#toc a[href="#${entry.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+document.querySelectorAll('#content h2[id]').forEach(h2 => observer.observe(h2));
+const btt = document.getElementById('back-to-top');
+window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 400));
+btt.addEventListener('click', () => { document.getElementById('content').scrollTo({top:0,behavior:'smooth'}); window.scrollTo({top:0,behavior:'smooth'}); });
+</script>
+</body>
+</html>
