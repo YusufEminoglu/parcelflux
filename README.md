@@ -10,6 +10,7 @@
 [![Version](https://img.shields.io/github/v/tag/YusufEminoglu/parcelflux?label=version&color=blue)](https://github.com/YusufEminoglu/parcelflux/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange)](LICENSE)
 [![QGIS Plugin Hub](https://img.shields.io/badge/QGIS%20Hub-install-589632?logo=qgis&logoColor=white)](https://plugins.qgis.org/plugins/parcelflux/)
+[![Documentation](https://img.shields.io/badge/📖_Reference_Manual-13a0a0)](https://yusufeminoglu.github.io/parcelflux/)
 
 </div>
 
@@ -18,6 +19,10 @@
 ## Why ParcelFlux?
 
 Hand-drawing parcels inside zoning blocks is slow, and naive equal-width splits look artificial. ParcelFlux subdivides blocks into parcels with *natural* variation — tunable width ranges, asymmetric rows, fishbone boundary offsets — while keeping every parcel inside the repaired real block footprint and cleaning up slivers automatically.
+
+## 📖 Documentation
+
+**[Comprehensive Academic Reference Manual](https://yusufeminoglu.github.io/parcelflux/)** — complete documentation of every algorithm, parameter, and workflow. Hosted on GitHub Pages.
 
 **Complete by construction:** the output always covers the input. A parcel that cannot satisfy your area or frontage envelope is split further or flagged — never quietly deleted — and every run reports its coverage so you can see that for yourself.
 
