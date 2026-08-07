@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.2] - 2026-08-07
+
+- Expanded reference manual: subdivision theory, geometry math, 14 DOI refs
+
 ## [0.3.1] - 2026-08-03
 
 ### Changed
