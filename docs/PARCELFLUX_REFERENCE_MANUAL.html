@@ -82,6 +82,8 @@ tr:nth-child(even) td { background: var(--table-stripe); }
 #back-to-top:hover { opacity: 1; }
 @media (max-width: 768px) { body { flex-direction: column; } #sidebar { width: 100%; min-width: 0; height: auto; position: static; max-height: 40vh; } #content { padding: 1em 1em 4em; } }
 @media print { body { display: block; } #sidebar, #back-to-top { display: none !important; } #content { max-width: none; padding: 0; } h2 { page-break-before: always; } }
+.video-embed { position: relative; width: 100%; padding-top: 56.25%; margin: 4px 0 28px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #000; }
+.video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 </style>
 </head>
 <body>
@@ -167,6 +169,10 @@ tr:nth-child(even) td { background: var(--table-stripe); }
 <main id="content">
 
 <h1>ParcelFlux</h1>
+<div class="video-embed">
+  <iframe src="https://www.youtube-nocookie.com/embed/kk2GIZO6b0s" title="ParcelFlux &mdash; video walkthrough" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</div>
+
 <h1 class="subtitle">Comprehensive Academic Reference Manual · v0.3.1</h1>
 <p style="color:var(--muted);font-size:.9em;">Yusuf Eminoğlu · August 2026 · <a href="https://github.com/YusufEminoglu/parcelflux">github.com/YusufEminoglu/parcelflux</a></p>
 
