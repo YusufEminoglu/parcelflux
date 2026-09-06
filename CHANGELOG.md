@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.4] - 2026-09-06
+
+- Migrate repository and documentation URLs to GitLab and Cloudflare Pages.
+
 ## [0.3.3] - 2026-08-07
 
 - Added online user manual link (https://yusufeminoglu.github.io/parcelflux/) and GitHub repository star call-to-action.
