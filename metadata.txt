@@ -7,11 +7,11 @@ version=0.3.4
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, minimum street frontage, explicit front-row depth and corner-plot widening, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments. Output is complete by construction: parcels that exceed the maximum area are split further, and anything still outside the envelope is kept and flagged rather than deleted, with a coverage report after every run. Results can be previewed before they are added, and four seeded layouts can be compared side by side. Developed at Dokuz Eylul University, Department of City and Regional Planning. Online User Manual & Documentation: https://geophilo.pages.dev/parcelflux/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geospacephilo/parcelflux)!
+about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, minimum street frontage, explicit front-row depth and corner-plot widening, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments. Output is complete by construction: parcels that exceed the maximum area are split further, and anything still outside the envelope is kept and flagged rather than deleted, with a coverage report after every run. Results can be previewed before they are added, and four seeded layouts can be compared side by side. Developed at Dokuz Eylul University, Department of City and Regional Planning. Online User Manual & Documentation: https://geophilo.com/parcelflux/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geospacephilo/parcelflux)!
 
 tracker=https://gitlab.com/geospacephilo/parcelflux/-/issues
 repository=https://gitlab.com/geospacephilo/parcelflux
-homepage=https://geophilo.pages.dev/parcelflux/
+homepage=https://geophilo.com/parcelflux/
 
 category=Vector
 tags=planx,qgis,parcel,subdivision,urban planning,settlement,dock
