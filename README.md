@@ -7,7 +7,7 @@
 **Parcel subdivision engine for QGIS — split zoning blocks with width variation, row asymmetry, fishbone offsets and residual merging.**
 
 [![QGIS](https://img.shields.io/badge/QGIS-3.28%2B-93b023?logo=qgis&logoColor=white)](https://plugins.qgis.org/plugins/parcelflux/)
-[![Version](https://img.shields.io/github/v/tag/YusufEminoglu/parcelflux?label=version&color=blue)](https://github.com/YusufEminoglu/parcelflux/releases)
+[![Version](https://img.shields.io/github/v/tag/YusufEminoglu/parcelflux?label=version&color=blue)](https://gitlab.com/geospacephilo/parcelflux/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange)](LICENSE)
 [![QGIS Plugin Hub](https://img.shields.io/badge/QGIS%20Hub-install-589632?logo=qgis&logoColor=white)](https://plugins.qgis.org/plugins/parcelflux/)
 [![Documentation](https://img.shields.io/badge/📖_Reference_Manual-13a0a0)](https://geophilo.com/parcelflux/)
@@ -47,7 +47,7 @@ Hand-drawing parcels inside zoning blocks is slow, and naive equal-width splits 
 
 **From the QGIS Plugin Hub (recommended):** `Plugins → Manage and Install Plugins…` → search for **"ParcelFlux"** → *Install*.
 
-**From a release zip:** download the latest zip from [Releases](https://github.com/YusufEminoglu/parcelflux/releases) → `Plugins → Install from ZIP`.
+**From a release zip:** download the latest zip from [Releases](https://gitlab.com/geospacephilo/parcelflux/releases) → `Plugins → Install from ZIP`.
 
 Requires QGIS 3.28 or newer (QGIS 4.x supported). No external Python dependencies; cancellation-safe background worker.
 
@@ -85,12 +85,12 @@ This plugin is one of 15 open-source QGIS plugins for urban planning by the same
 
 | Planning & analysis | CAD & production | 3D & visualization |
 |---|---|---|
-| [PlanX](https://github.com/YusufEminoglu/parcelflux) — spatial-planning suite | [PlanX CAD Toolset](https://github.com/YusufEminoglu/parcelflux) — drafting-grade CAD | [PlanX 3D City](https://github.com/YusufEminoglu/parcelflux) — Three.js city viewer |
-| [GeoStats Lab](https://github.com/YusufEminoglu/parcelflux) — spatial statistics | [EasyFillet](https://github.com/YusufEminoglu/parcelflux) — tangent-arc fillet | [3D OSM Model](https://github.com/YusufEminoglu/parcelflux) — OSM → 3D city in browser |
-| [Suitability Lab](https://github.com/YusufEminoglu/parcelflux) — raster MCDA | [Settlement Toolset](https://github.com/YusufEminoglu/parcelflux) — 9-stage settlement plans | [OSM Quick 3D](https://github.com/YusufEminoglu/parcelflux) — OSM → native QGIS 3D |
-| [DataCube Lab](https://github.com/YusufEminoglu/parcelflux) — spatiotemporal cubes | [UIP Toolset](https://github.com/YusufEminoglu/parcelflux) — Turkish master-plan automation | [Urban Procedural 3D](https://github.com/YusufEminoglu/parcelflux) — parametric zoning lab |
-| [Urban Resilience](https://github.com/YusufEminoglu/parcelflux) — 28 resilience tools | [ParcelFlux](https://github.com/YusufEminoglu/parcelflux) — parcel subdivision | [CartoLab](https://github.com/YusufEminoglu/parcelflux) — publication cartography |
+| [PlanX](https://gitlab.com/geospacephilo/parcelflux) — spatial-planning suite | [PlanX CAD Toolset](https://gitlab.com/geospacephilo/parcelflux) — drafting-grade CAD | [PlanX 3D City](https://gitlab.com/geospacephilo/parcelflux) — Three.js city viewer |
+| [GeoStats Lab](https://gitlab.com/geospacephilo/parcelflux) — spatial statistics | [EasyFillet](https://gitlab.com/geospacephilo/parcelflux) — tangent-arc fillet | [3D OSM Model](https://gitlab.com/geospacephilo/parcelflux) — OSM → 3D city in browser |
+| [Suitability Lab](https://gitlab.com/geospacephilo/parcelflux) — raster MCDA | [Settlement Toolset](https://gitlab.com/geospacephilo/parcelflux) — 9-stage settlement plans | [OSM Quick 3D](https://gitlab.com/geospacephilo/parcelflux) — OSM → native QGIS 3D |
+| [DataCube Lab](https://gitlab.com/geospacephilo/parcelflux) — spatiotemporal cubes | [UIP Toolset](https://gitlab.com/geospacephilo/parcelflux) — Turkish master-plan automation | [Urban Procedural 3D](https://gitlab.com/geospacephilo/parcelflux) — parametric zoning lab |
+| [Urban Resilience](https://gitlab.com/geospacephilo/parcelflux) — 28 resilience tools | [ParcelFlux](https://gitlab.com/geospacephilo/parcelflux) — parcel subdivision | [CartoLab](https://gitlab.com/geospacephilo/parcelflux) — publication cartography |
 
 ## 📜 License & author
 
-GPL-3.0-or-later © [Yusuf Eminoğlu](https://github.com/YusufEminoglu) — bug reports and feature requests welcome in [Issues](https://github.com/YusufEminoglu/parcelflux/issues).
+GPL-3.0-or-later © [Yusuf Eminoğlu](https://github.com/YusufEminoglu) — bug reports and feature requests welcome in [Issues](https://gitlab.com/geospacephilo/parcelflux/-/issues).
