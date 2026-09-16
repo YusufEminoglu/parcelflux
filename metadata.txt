@@ -3,19 +3,19 @@ name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
 description=Subdivide zoning blocks into parcels with minimum-frontage, depth and corner rules, width variation, row asymmetry, fishbone offset, and automatic residual merging.
-version=0.3.4
+version=0.3.5
 author=Yusuf Eminoglu
 email=yusuf.eminoglu@deu.edu.tr
 
-about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, minimum street frontage, explicit front-row depth and corner-plot widening, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments. Output is complete by construction: parcels that exceed the maximum area are split further, and anything still outside the envelope is kept and flagged rather than deleted, with a coverage report after every run. Results can be previewed before they are added, and four seeded layouts can be compared side by side. Developed at Dokuz Eylul University, Department of City and Regional Planning. Online User Manual & Documentation: https://geophilo.com/parcelflux/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geospacephilo/parcelflux)!
+about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, minimum street frontage, explicit front-row depth and corner-plot widening, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments. Output is complete by construction: parcels that exceed the maximum area are split further, and anything still outside the envelope is kept and flagged rather than deleted, with a coverage report after every run. Results can be previewed before they are added, and four seeded layouts can be compared side by side. Developed at Dokuz Eylul University, Department of City and Regional Planning. Online User Manual & Documentation: https://geophilo.com/parcelflux/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geophilo1/parcelflux)!
 
-tracker=https://gitlab.com/geospacephilo/parcelflux/-/issues
-repository=https://gitlab.com/geospacephilo/parcelflux
+tracker=https://gitlab.com/geophilo1/parcelflux/-/issues
+repository=https://gitlab.com/geophilo1/parcelflux
 homepage=https://geophilo.com/parcelflux/
 
 category=Vector
 tags=planx,qgis,parcel,subdivision,urban planning,settlement,dock
-icon=icons/parcelflux.png
+icon=icons/icon.png
 
 experimental=False
 deprecated=False
@@ -23,6 +23,7 @@ hasProcessingProvider=no
 license=GPL-3
 
 changelog=
+    0.3.5 - Upgraded official plugin icon to high-end tactile 3D brand identity with circular teal pedestal; synchronized documentation, repository and issue tracker endpoints to GeoPhilo and GitLab.
     0.3.1 - Palette-aware adaptive theme.
         Changed: replace every hardcoded colour in the dock, seed gallery, guide and about HTML with palette-derived tokens so the entire UI stays readable under QGIS light, dark and high-contrast themes while keeping the ParcelFlux green accent identity.
         Added: theme.py module with WCAG contrast-ratio checks, palette-aware colour tokens, and a single apply_adaptive_theme() entry point; the dock now listens for PaletteChange and re-applies the theme automatically when the user switches themes.
