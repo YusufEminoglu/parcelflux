@@ -20,8 +20,7 @@ icon=icons/icon.png
 experimental=False
 deprecated=False
 hasProcessingProvider=no
-license=GPL-3
-
+license=GPL-3.0-or-later
 changelog=
     0.3.5 - Upgraded official plugin icon to high-end tactile 3D brand identity with circular teal pedestal; synchronized documentation, repository and issue tracker endpoints to GeoPhilo and GitLab.
     0.3.1 - Palette-aware adaptive theme.
