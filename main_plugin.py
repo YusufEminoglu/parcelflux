@@ -144,6 +144,6 @@ class ParcelFluxPlugin:
         )
 
     def _show_docs(self) -> None:
+        # The algorithm and parameter guide is published on geophilo.com.
         import webbrowser
-        docs_path = os.path.join(self.plugin_dir, "docs", "guide.html")
-        webbrowser.open(f"file:///{docs_path.replace(os.sep, '/')}")
+        webbrowser.open("https://geophilo.com/parcelflux/guide/")

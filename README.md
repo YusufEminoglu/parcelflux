@@ -60,14 +60,14 @@ Requires QGIS 3.28 or newer (QGIS 4.x supported). No external Python dependencie
 
 ## ⚙️ Reference
 
-The complete algorithm reference — every parameter with formulas and a step-by-step workflow — lives in **[docs/guide.html](docs/guide.html)**.
+The complete algorithm reference — every parameter with formulas and a step-by-step workflow — lives in the **[ParcelFlux guide](https://geophilo.com/parcelflux/guide/)**.
 
 | Component | Where |
 |-----------|-------|
 | Dock panel UI & run logic | `dialogs/dock.py` |
 | Seed comparison gallery | `dialogs/seed_gallery.py` |
 | Standalone subdivision engine | `algorithms/parcel_flux_core.py` |
-| Algorithm & parameter guide | `docs/guide.html` |
+| Algorithm & parameter guide | [https://geophilo.com/parcelflux/guide/](https://geophilo.com/parcelflux/guide/) |
 | Headless engine & dock tests | `tests/smoke_core.py`, `tests/smoke_dock.py` |
 
 Run the tests against a real QGIS from the plugins parent directory:

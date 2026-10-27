@@ -1,9 +1,7 @@
 # Repository-only content, not part of the installed plugin.
 #
-# docs/guide.html IS shipped: dock.py and main_plugin.py open it as the bundled
-# offline guide. The reference manual and the landing-page stub are not opened by
-# any code path -- the About/Help links point at the online copies -- so only
-# those two are left out, along with the CI workflows.
+# The guide and the reference manual are published on geophilo.com and are not
+# part of the plugin package; Help opens the online pages.
 docs/PARCELFLUX_REFERENCE_MANUAL.html
 docs/index.html
 .github

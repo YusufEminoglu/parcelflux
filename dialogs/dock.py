@@ -947,15 +947,9 @@ ParcelFlux — Geophilo · GPL-3.0
         self.seed_spin.setValue(t_seed)
 
     def _open_external_docs(self) -> None:
+        # The algorithm and parameter guide is published on geophilo.com.
         import webbrowser
-        docs_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "docs", "guide.html")
-        if os.path.exists(docs_path):
-            webbrowser.open(f"file:///{docs_path.replace(os.sep, '/')}")
-        else:
-            QMessageBox.information(
-                self, "Documentation",
-                "Bundled HTML guide not found. See the GitHub repository for documentation.")
+        webbrowser.open("https://geophilo.com/parcelflux/guide/")
 
     # =================================================================
     # RUN LOGIC
