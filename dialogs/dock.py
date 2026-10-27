@@ -598,8 +598,7 @@ class ParcelFluxDock(QDockWidget):
         c = dock_color_tokens()
         return f"""
         <div style='font-family: Segoe UI, sans-serif; color:{c["text"]};'>
-          <p><b>Author:</b> Yusuf Eminoğlu<br>
-             <b>Affiliation:</b> Dokuz Eylül University, Department of City and Regional Planning<br>
+          <p><b>Author:</b> Geophilo<br>
              <b>License:</b> GPL-3.0<br>
              <b>QGIS support:</b> 3.28 → 4.x</p>
 
@@ -876,7 +875,7 @@ This makes it suitable for academic publications: cite the version
 
 <hr>
 <p style='color:{c["subtle"]}; font-size: 9pt;'>
-ParcelFlux — Yusuf Eminoğlu · Dokuz Eylül University · GPL-3.0
+ParcelFlux — Geophilo · GPL-3.0
 </p>
 </body></html>
         """
