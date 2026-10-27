@@ -2,19 +2,21 @@
 name=ParcelFlux
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99
-description=Subdivide zoning blocks into parcels with minimum-frontage, depth and corner rules, width variation, row asymmetry, fishbone offset, and automatic residual merging.
+description=Subdivide zoning blocks into parcels that look planned, not mechanical: minimum frontage, depth and corner rules, natural width variation, row asymmetry, fishbone offsets and residual merging.
 version=0.3.5
 author=Geophilo
 email=yusuf.eminoglu@deu.edu.tr
 
-about=ParcelFlux automates the subdivision of zoning blocks into parcels with natural variation. It supports single/double-row detection, minimum street frontage, explicit front-row depth and corner-plot widening, row-width asymmetry for differentiated front/rear facades, fishbone-style organic boundary offsets, H-line shift for asymmetric depth, and 3-pass automatic merging of residual fragments. Output is complete by construction: parcels that exceed the maximum area are split further, and anything still outside the envelope is kept and flagged rather than deleted, with a coverage report after every run. Results can be previewed before they are added, and four seeded layouts can be compared side by side. Online User Manual & Documentation: https://geophilo.com/parcelflux/ | If you find this plugin helpful, please consider starring the repository on GitLab (https://gitlab.com/geophilo1/parcelflux)!
+about=ParcelFlux turns zoning blocks into parcel layouts with the variation real plots have. It detects single and double rows, respects minimum street frontage, front-row depth and corner widening, varies widths and rear lines for differentiated facades, and offsets boundaries in a fishbone pattern for organic layouts.
+    Output is complete by construction: oversized parcels are split again, residual fragments are merged in three passes, and anything outside the limits is kept and flagged instead of deleted, with a coverage report after every run. Preview before adding, and compare four seeded layouts side by side.
+    Manual: https://geophilo.com/parcelflux/manual.html
 
 tracker=https://gitlab.com/geophilo1/parcelflux/-/issues
 repository=https://gitlab.com/geophilo1/parcelflux
 homepage=https://geophilo.com/parcelflux/
 
 category=Vector
-tags=planx,qgis,parcel,subdivision,urban planning,settlement,dock
+tags=planx,parcel,subdivision,urban planning,settlement,plot layout,block subdivision,geophilo
 icon=icons/icon.png
 
 experimental=False
